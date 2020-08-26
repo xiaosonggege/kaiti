@@ -61,7 +61,7 @@ class Waveleting:
         data = self._signal if signal is None else signal
         self._coeffs = pywt.wavedec(data=data, wavelet=self._wavelet_func, level=self._maxlev)
         for i in range(1, len(self._coeffs)):
-            self._coeffs[i] = pywt.threshold(data=self._coeffs[i], value=self.heursure()) #self._threshold * max(self._coeffs[i])
+            self._coeffs[i] = pywt.threshold(data=self._coeffs[i], value=self._threshold * max(self._coeffs[i])) #self._threshold * max(self._coeffs[i]) self.heursure()
         self._datarec = pywt.waverec(self._coeffs, 'db8')
         return self._datarec
 
@@ -85,7 +85,7 @@ def Nsr(f_m:np.ndarray, f_n:np.ndarray):
     return 1 / Snr(f_m=f_m, f_n=f_n)
 
 def one_Er(f_m:np.ndarray, f_n:np.ndarray):
-    return 1 - np.sum(f_m ** 2) / np.sum(f_n ** 2)
+    return np.sum(f_m ** 2) / np.sum(f_n ** 2)
 
 if __name__ == '__main__':
     # 信号模拟
@@ -118,12 +118,17 @@ if __name__ == '__main__':
     y_a1_addnoise = figure_data_a1_chayang + 0.5 * noise
 
     # 原始信号绘图
-    fig, ax = plt.subplots(nrows=3)
-    ax[0].plot(x_spline_new, figure_data_a1_chayang.ravel())
-    # ax[1].plot(x_a2.ravel(), y_a2.ravel())
-    ax[1].plot(x_spline_new, y_a1_addnoise.ravel(), label='L=1')
-    ax[2].plot(x_spline_new.ravel(), noise.ravel())
-    fig.show()
+    # fig, ax = plt.subplots(nrows=2)
+    # ax[0].plot(x_spline_new, figure_data_a1_chayang.ravel(), label='raw signal')
+    # # ax[1].plot(x_a2.ravel(), y_a2.ravel())
+    # ax[1].plot(x_spline_new, y_a1_addnoise.ravel(), label='add noise')
+    # ax[0].legend()
+    # ax[1].legend()
+    # ax[0].set_xlabel('Number of noise reduction iterations')
+    # ax[0].set_ylabel('Index value')
+    # ax[1].set_xlabel('Number of noise reduction iterations')
+    # ax[1].set_ylabel('Index value')
+    # fig.show()
 
     #小波迭代降噪
     fig1, ax1 = plt.subplots()
@@ -134,40 +139,40 @@ if __name__ == '__main__':
     SNR = []
     NSR = []
     ONE_ER = []
-    for i in range(1, 6): #14不错 #20
+    for i in range(1, 16): #6不错 #16
         signal = Waveleting(signal=y_a1_addnoise.ravel())(i)
-        # f_n = signal
-        # RSNR.append(Rsnr(f_m=f_m, f_n=f_n))
-        # SNR.append(10 * np.log2(Snr(f_m=figure_data_a1_chayang.ravel(), f_n=f_n)))
-        # NSR.append(10 * np.log2(Nsr(f_m=figure_data_a1_chayang.ravel(), f_n=f_n)))
-        # ONE_ER.append(one_Er(f_m=f_n, f_n=figure_data_a1_chayang.ravel()))
-        # f_m = signal
-        ax1.plot(x_spline_new, signal+i*3, label='L='+str(i+2))
-    ax1.legend()
-    ax1.set_xlabel('Number of tracks')
-    ax1.set_ylabel('Counts')
-    fig1.show()
+        f_n = signal
+        RSNR.append(Rsnr(f_m=f_m, f_n=f_n))
+        SNR.append(1e-4 * np.log2(Snr(f_m=figure_data_a1_chayang.ravel(), f_n=f_n)))
+        NSR.append(1e-4 * np.log2(Nsr(f_m=figure_data_a1_chayang.ravel(), f_n=f_n)))
+        ONE_ER.append(1e-4 * one_Er(f_m=f_n, f_n=figure_data_a1_chayang.ravel()))
+        f_m = signal
+    #     ax1.plot(x_spline_new, signal+i*2, label='L='+str(i+2))
+    # ax1.legend()
+    # ax1.set_xlabel('Number of tracks')
+    # ax1.set_ylabel('Counts')
+    # fig1.show()
     #
     # fig2, ax2 = plt.subplots()
     # # ax2.plot(RSNR, label='RSNR', marker='o', markersize=5)
     # # ax2.plot(SNR, label='SNR', marker='^', markersize=5)
     # # ax2.plot(NSR, label='NSR', marker='s', markersize=5)
     # ax2.plot(ONE_ER, label='|1-ER|', marker='d', markersize=5)
-    # ax2.legend(loc=4)
+    # ax2.legend(loc=1)
     # ax2.set_xlabel('Number of noise reduction iterations')
     # ax2.set_ylabel('Index value')
-    # ax2.set_xticks([i for i in range(0, 19)])
-    # ax2.set_xticklabels([i for i in range(1, 20)])
-    # # fig2.show()
+    # ax2.set_xticks([i for i in range(0, 16)])
+    # ax2.set_xticklabels([i for i in range(0, 16)])
+    # fig2.show()
 
 #########################
-    # f_m_1 = signal_raw
-    # f_m_2 = signal_raw
+    # f_m_1 = y_a1_addnoise.ravel()
+    # f_m_2 = y_a1_addnoise.ravel()
     # RSNR_db8 = []
     # RSNR_sym8 = []
     # for i in range(1, 20): #14不错 #20
-    #     signal_db8 = Waveleting(signal=signal_raw)(i)
-    #     signal_sym8 = Waveleting(signal=signal_raw, wavelet_func='sym8')(i)
+    #     signal_db8 = Waveleting(signal=y_a1_addnoise.ravel())(i)
+    #     signal_sym8 = Waveleting(signal=y_a1_addnoise.ravel(), wavelet_func='sym8')(i)
     #     f_n_1 = signal_db8
     #     f_n_2 = signal_sym8
     #     RSNR_db8.append(1000*Rsnr(f_m=f_m_1, f_n=f_n_1))
@@ -185,23 +190,23 @@ if __name__ == '__main__':
     # ax2.set_ylabel('Index value')
     # ax2.set_xticks([i for i in range(0, 19)])
     # ax2.set_xticklabels([i for i in range(1, 20)])
-    # # fig2.show()
+    # fig2.show()
 
 #######################################
     # RSNR_20 = []
     # RSNR_50 = []
     # RSNR_120 = []
-    # signal_20 = Signal(A=A, miuu=miuu, omiga=omiga, delta=delta*0.2, length=length, signal_range=signal_range)
-    # signal_50 = Signal(A=A, miuu=miuu, omiga=omiga, delta=delta * 0.5, length=length, signal_range=signal_range)
-    # signal_120 = Signal(A=A, miuu=miuu, omiga=omiga, delta=delta * 1.2, length=length, signal_range=signal_range)
-    # f_m_1 = signal_20.signal
-    # f_m_2 = signal_50.signal
-    # f_m_3 = signal_120.signal
+    # signal_20 = figure_data_a1_chayang + 0.5 * noise * 0.2
+    # signal_50 = figure_data_a1_chayang + 0.5 * noise * 0.5
+    # signal_120 = figure_data_a1_chayang + 0.5 * noise * 1.2
+    # f_m_1 = signal_20
+    # f_m_2 = signal_50
+    # f_m_3 = signal_120
     #
     # for i in range(1, 20): #14不错 #20
-    #     signall_20 = Waveleting(signal=signal_20.signal)(i)
-    #     signall_50 = Waveleting(signal=signal_50.signal)(i)
-    #     signall_120 = Waveleting(signal=signal_120.signal)(i)
+    #     signall_20 = Waveleting(signal=signal_20)(i)
+    #     signall_50 = Waveleting(signal=signal_50)(i)
+    #     signall_120 = Waveleting(signal=signal_120)(i)
     #     f_n_1 = signall_20
     #     f_n_2 = signall_50
     #     f_n_3 = signall_120
@@ -221,3 +226,42 @@ if __name__ == '__main__':
     # ax2.set_xticks([i for i in range(0, 19)])
     # ax2.set_xticklabels([i for i in range(1, 20)])
     # fig2.show()
+
+#######################gamma能谱#########################
+    # gamma能谱
+    figure_a1 = pd.read_excel(io='/Users/songyunlong/Desktop/7-a.xlsx', sheet_name='7-a', index_col=None, header=1)
+    figure_data_a1 = figure_a1.values.T
+
+    # print(figure_data_a1.shape)
+    x_a1, y_a1 = np.split(ary=figure_data_a1, indices_or_sections=2, axis=0)
+    # 插值
+    spline = lambda x, y: interp1d(x, y, kind='linear')  # quadratic
+    x_spline_new = np.linspace(np.min(x_a1), np.max(x_a1), 3000)
+    # print(x_a1.shape, y_a1.shape)
+    figure_data_a1_chayang = spline(x_a1.ravel(), y_a1.ravel())(x_spline_new)
+    # x_a2, y_a2 = np.split(ary=figure_data_a2, indices_or_sections=2, axis=0)
+    rng = np.random.RandomState(0)
+    noise = rng.normal(loc=0, scale=1, size=figure_data_a1_chayang.shape)
+    y_a1_addnoise = figure_data_a1_chayang + 0.05 * noise
+    # 原始信号绘图
+    # fig, ax = plt.subplots(nrows=2)
+    # ax[0].plot(x_spline_new, figure_data_a1_chayang.ravel(), label='raw signal')
+    # # ax[1].plot(x_a2.ravel(), y_a2.ravel())
+    # ax[1].plot(x_spline_new, y_a1_addnoise.ravel(), label='add noise')
+    # ax[0].legend()
+    # ax[1].legend()
+    # ax[0].set_xlabel('Number of noise reduction iterations')
+    # ax[0].set_ylabel('Index value')
+    # ax[1].set_xlabel('Number of noise reduction iterations')
+    # ax[1].set_ylabel('Index value')
+    # fig.show()
+
+    # 小波迭代降噪
+    fig1, ax1 = plt.subplots()
+    signal = Waveleting(signal=y_a1_addnoise.ravel())(6)
+    # print(signal.shape)
+    ax1.plot(x_spline_new, signal, label='denoise 6th')
+    ax1.legend()
+    ax1.set_xlabel('Number of tracks')
+    ax1.set_ylabel('Counts')
+    fig1.show()
