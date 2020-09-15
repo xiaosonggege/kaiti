@@ -93,7 +93,7 @@ if __name__ == '__main__':
     #峰值区域边界点高度阈值
     Th = 1e-7 * 1e-3
     peaks_start = []
-    print(peaks_range)
+    # print(peaks_range)
     #向左遍历
     for i in range(1, peaks_range.__len__()-1):
         for j in reversed(range(peaks_range[i-1], peaks_range[i])):
@@ -111,14 +111,40 @@ if __name__ == '__main__':
 
     peaks_start_end = np.hstack((np.array(peaks_start), np.array(peaks_end)))
     peaks_start_end = np.sort(peaks_start_end)
-    print(peaks_start_end)
+    # print(peaks_start_end.shape, peaks_high.shape)
+    # print(peaks_start_end)
+
+    ################计算峰值区域面积、本地面积和净峰面积###############
+    # 峰值区域面积
+    fengzhimianji = np.array([])
+
+    # 本地面积
+    bendimianji = np.array([])
+
+    # 净峰面积
+    jingfengmianji = np.array([])
+    for i in range(0, peaks_start_end.shape[0], 2):
+        # print('(%s, %s)' % (peaks_start_end[i], peaks_start_end[i+1]))
+        area_fengzhimianji = np.sum(signal[peaks_start_end[i]:peaks_start_end[i+1]+1])
+        area_bendimianji = (signal[peaks_start_end[i]] + signal[peaks_start_end[i+1]]) * (peaks_start_end[i+1] - peaks_start_end[i] + 1) / 2
+        area_jingfengmianji = area_fengzhimianji - area_bendimianji
+        jingfengmianji = np.append(jingfengmianji, area_jingfengmianji)
+
+        bendimianji = np.append(bendimianji, area_bendimianji)
+        # print(area_fengzhimianji)
+        fengzhimianji = np.append(fengzhimianji, area_fengzhimianji)
+    print(fengzhimianji)
+    print(bendimianji)
+    print(jingfengmianji)
+
+
 
     ######绘制去基线后的图以及峰值区域########
-    fig, ax = plt.subplots()
-    ax.plot(x_a1, qujixian_result)
-    ax.scatter(x_a1[peaks_high], qujixian_result[peaks_high], color='r')
-    ax.scatter(x_a1[peaks_start_end], qujixian_result[peaks_start_end], color='black', s=4)
-    fig.show()
+    # fig, ax = plt.subplots()
+    # ax.plot(x_a1, qujixian_result)
+    # ax.scatter(x_a1[peaks_high], qujixian_result[peaks_high], color='r')
+    # ax.scatter(x_a1[peaks_start_end], qujixian_result[peaks_start_end], color='black', s=4)
+    # fig.show()
 
 
 
