@@ -74,7 +74,7 @@ if __name__ == '__main__':
     peaks_chayang = spline(x_a1[peaks], signal[peaks])(x_spline_new)
 
     #去基线
-    qujixian_result = signal - peaks_chayang
+    qujixian_result = np.where(signal - peaks_chayang > 0, signal - peaks_chayang, 0)
 
     # 峰值点
     peaks_high, _ = peak_id, peak_property = find_peaks(qujixian_result, height=1e-9, prominence=1e-8)
@@ -124,18 +124,32 @@ if __name__ == '__main__':
     # 净峰面积
     jingfengmianji = np.array([])
     for i in range(0, peaks_start_end.shape[0], 2):
-        # print('(%s, %s)' % (peaks_start_end[i], peaks_start_end[i+1]))
-        area_fengzhimianji = np.sum(signal[peaks_start_end[i]:peaks_start_end[i+1]+1])
-        area_bendimianji = (signal[peaks_start_end[i]] + signal[peaks_start_end[i+1]]) * (peaks_start_end[i+1] - peaks_start_end[i] + 1) / 2
+        print('(%s, %s)' % (peaks_start_end[i], peaks_start_end[i+1]))
+        area_fengzhimianji = np.sum(qujixian_result[peaks_start_end[i]:peaks_start_end[i+1]+1])
+        area_bendimianji = (qujixian_result[peaks_start_end[i]] + qujixian_result[peaks_start_end[i+1]]) * (peaks_start_end[i+1] - peaks_start_end[i] + 1) / 2
+        # print(area_bendimianji > 0)
         area_jingfengmianji = area_fengzhimianji - area_bendimianji
         jingfengmianji = np.append(jingfengmianji, area_jingfengmianji)
 
         bendimianji = np.append(bendimianji, area_bendimianji)
         # print(area_fengzhimianji)
         fengzhimianji = np.append(fengzhimianji, area_fengzhimianji)
+    print('峰值面积')
     print(fengzhimianji)
+    print('本地面积')
     print(bendimianji)
+    print('净峰面积')
     print(jingfengmianji)
+
+    ############面积计算绘图############
+    fig, ax = plt.subplots(nrows=3)
+    ax[0].stem(x_a1[peaks_high], fengzhimianji, basefmt='--', label='The peak area of')
+    ax[1].stem(x_a1[peaks_high], bendimianji, basefmt='--', label='The bottom area')
+    ax[2].stem(x_a1[peaks_high], jingfengmianji, basefmt='--', label='Net peak area')
+    ax[0].legend()
+    ax[1].legend()
+    ax[2].legend()
+    fig.show()
 
 
 
