@@ -12,6 +12,16 @@ import numpy as np
 import pandas as pd
 import copy
 
+class Property_s:
+    def __init__(self, name):
+        self._name = '_' + name
+
+    def __get__(self, instance, owner):
+        return instance.__dict__[self._name]
+
+    def __set__(self, instance, value):
+        instance.__dict__[self._name] = value
+
 class SignalProcessing:
     '''
     数据平滑->对数变换->寻峰->计算峰值区域边界->本地面积->净峰面积
@@ -46,7 +56,7 @@ class SignalProcessing:
         return A * np.log10(B + signal)
 
     @classmethod
-    def duichenlingmianjifa(cls, signal:np.ndarray, extand:int, thr:np.float, k:np.float)->list:
+    def duichenlingmianjifa(cls, signal:np.ndarray, extand:int, thr:np.float)->list:
         def C_j(j:int)->np.float:
             return np.exp(-4 * (j / 4) ** 2 * np.log(2))
         signal_extand = SignalProcessing.signal_extand(signal=signal, extand=extand)
@@ -108,7 +118,33 @@ class SignalProcessing:
 
     def __init__(self, signal:np.ndarray)->None:
         self._signal = signal
+    Signal = Property_s('signal')
 
+    def processing(self)->tuple:
+        #平滑
+        signal_pinghua_ex = SignalProcessing.signal_extand(signal=self._signal, extand=2)
+        signal_pinghua = SignalProcessing.pinghua(signal=signal_pinghua_ex,
+                                                  weights=np.array([1, 4, 16, 4, 1], dtype=np.float), k=1/16)
+        signal_pinghua_log = SignalProcessing.loging(signal=signal_pinghua, A=0.9, B=0.2)
+        #寻峰
+        fengzhi_rigon = SignalProcessing.duichenlingmianjifa(signal=signal_pinghua_log, extand=5, thr=0.5) #thr需要修改
+        #本底计算
+        bendi_s = SignalProcessing.bendi_calc(signal=signal_pinghua, fengzhi_rigon=fengzhi_rigon)
+        #净峰面积
+        jingfeng_s = SignalProcessing.jingfeng_calc(signal=signal_pinghua, fengzhi_rigon=fengzhi_rigon, bendi_s=bendi_s)
+        return fengzhi_rigon, bendi_s, jingfeng_s
+
+    def __enter__(self):
+        return self.processing()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return True
 
 if __name__ == '__main__':
-    pass
+    signal = None
+    with SignalProcessing(signal=signal) as s:
+        fengzhi_rigon, bendi_s, jingfeng_s = s
+        print(fengzhi_rigon)
+        print(bendi_s)
+        print(jingfeng_s)
+
