@@ -116,40 +116,40 @@ if __name__ == '__main__':
 
     ################计算峰值区域面积、本地面积和净峰面积###############
     # 峰值区域面积
-    fengzhimianji = np.array([])
-
-    # 本地面积
-    bendimianji = np.array([])
-
-    # 净峰面积
-    jingfengmianji = np.array([])
-    for i in range(0, peaks_start_end.shape[0], 2):
-        print('(%s, %s)' % (peaks_start_end[i], peaks_start_end[i+1]))
-        area_fengzhimianji = np.sum(qujixian_result[peaks_start_end[i]:peaks_start_end[i+1]+1])
-        area_bendimianji = (qujixian_result[peaks_start_end[i]] + qujixian_result[peaks_start_end[i+1]]) * (peaks_start_end[i+1] - peaks_start_end[i] + 1) / 2
-        # print(area_bendimianji > 0)
-        area_jingfengmianji = area_fengzhimianji - area_bendimianji
-        jingfengmianji = np.append(jingfengmianji, area_jingfengmianji)
-
-        bendimianji = np.append(bendimianji, area_bendimianji)
-        # print(area_fengzhimianji)
-        fengzhimianji = np.append(fengzhimianji, area_fengzhimianji)
-    print('峰值面积')
-    print(fengzhimianji)
-    print('本地面积')
-    print(bendimianji)
-    print('净峰面积')
-    print(jingfengmianji)
-
-    ############面积计算绘图############
-    fig, ax = plt.subplots(nrows=3)
-    ax[0].stem(x_a1[peaks_high], fengzhimianji, basefmt='--', label='The peak area of')
-    ax[1].stem(x_a1[peaks_high], bendimianji, basefmt='--', label='The bottom area')
-    ax[2].stem(x_a1[peaks_high], jingfengmianji, basefmt='--', label='Net peak area')
-    ax[0].legend()
-    ax[1].legend()
-    ax[2].legend()
-    fig.show()
+    # fengzhimianji = np.array([])
+    #
+    # # 本地面积
+    # bendimianji = np.array([])
+    #
+    # # 净峰面积
+    # jingfengmianji = np.array([])
+    # for i in range(0, peaks_start_end.shape[0], 2):
+    #     print('(%s, %s)' % (peaks_start_end[i], peaks_start_end[i+1]))
+    #     area_fengzhimianji = np.sum(qujixian_result[peaks_start_end[i]:peaks_start_end[i+1]+1])
+    #     area_bendimianji = (qujixian_result[peaks_start_end[i]] + qujixian_result[peaks_start_end[i+1]]) * (peaks_start_end[i+1] - peaks_start_end[i] + 1) / 2
+    #     # print(area_bendimianji > 0)
+    #     area_jingfengmianji = area_fengzhimianji - area_bendimianji
+    #     jingfengmianji = np.append(jingfengmianji, area_jingfengmianji)
+    #
+    #     bendimianji = np.append(bendimianji, area_bendimianji)
+    #     # print(area_fengzhimianji)
+    #     fengzhimianji = np.append(fengzhimianji, area_fengzhimianji)
+    # print('峰值面积')
+    # print(fengzhimianji)
+    # print('本地面积')
+    # print(bendimianji)
+    # print('净峰面积')
+    # print(jingfengmianji)
+    #
+    # ############面积计算绘图############
+    # fig, ax = plt.subplots(nrows=3)
+    # ax[0].stem(x_a1[peaks_high], fengzhimianji, basefmt='--', label='The peak area of')
+    # ax[1].stem(x_a1[peaks_high], bendimianji, basefmt='--', label='The bottom area')
+    # ax[2].stem(x_a1[peaks_high], jingfengmianji, basefmt='--', label='Net peak area')
+    # ax[0].legend()
+    # ax[1].legend()
+    # ax[2].legend()
+    # fig.show()
 
 
 
@@ -157,8 +157,15 @@ if __name__ == '__main__':
     # fig, ax = plt.subplots()
     # ax.plot(x_a1, qujixian_result)
     # ax.scatter(x_a1[peaks_high], qujixian_result[peaks_high], color='r')
-    # ax.scatter(x_a1[peaks_start_end], qujixian_result[peaks_start_end], color='black', s=4)
+    # ax.scatter(x_a1[peaks_start_end], qujixian_result[peaks_start_end], color='black', s=5)
     # fig.show()
+
+    ########绘制不去基线的图及峰值区域###########
+    fig, ax = plt.subplots()
+    ax.plot(x_a1, signal)
+    ax.scatter(x_a1[peaks_high], signal[peaks_high], color='r')
+    ax.scatter(x_a1[peaks_start_end], signal[peaks_start_end], color='black', s=10)
+    fig.show()
 
 
 
