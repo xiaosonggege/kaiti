@@ -1,6 +1,3 @@
-from collections.abc import Callable, Iterable, Iterator, Generator
-import main2
-import contextlib
 from matplotlib import pyplot as plt
 import os
 

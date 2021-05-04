@@ -1,0 +1,2 @@
+model_checkpoint_path: "/root/MyBishe/songyunlong/xinhaoquzao/checkpointfile/save_model"
+all_model_checkpoint_paths: "/root/MyBishe/songyunlong/xinhaoquzao/checkpointfile/save_model"

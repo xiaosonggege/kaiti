@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="4f6b8c0a-2259-400f-bb64-875528199352" name="songyunlong" url="http:///">
+        <fileTransfer rootFolder="/root/MyBishe/songyunlong" accessType="SFTP" host="10.103.238.163" port="22" sshConfigId="ee6dd94d-95c6-4292-b9f3-25cbb7ac29dd" sshConfig="root@10.103.238.163:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
