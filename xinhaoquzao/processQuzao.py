@@ -175,7 +175,7 @@ if __name__ == '__main__':
     x, y = np.split(train_ds, 2, axis=-1)
     x = x.reshape(20000, -1)
     y = y.reshape(20000, -1)
-    train_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x, y)).repeat(50000).batch(100)
+    train_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x, y)).repeat(50000).batch(512)
     pq.Dataset = train_ds_Dataset
     pq.train(input_size=20)
 

@@ -63,10 +63,10 @@ class SinusoidGenerator():
             else:
                 x = self.x
         y = self.f(x)
-        # return x[:, None], y[:, None]  # x_shape=(x.shape[0], 1), y_shape=(y.shape[0], 1)
-        rng = np.random.RandomState(0)
-        noise = rng.random(size=y[:, None].shape)
-        return y[:, None]+noise, y[:, None]
+        return x[:, None], y[:, None]  # x_shape=(x.shape[0], 1), y_shape=(y.shape[0], 1)
+        # rng = np.random.RandomState(0)
+        # noise = rng.random(size=y[:, None].shape)
+        # return y[:, None]+noise, y[:, None]+noise
     def equally_spaced_samples(self, K=None, force_new=False):
         '''Returns `K` equally spaced samples.'''
         if K is None:
