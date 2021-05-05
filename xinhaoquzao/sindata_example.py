@@ -63,8 +63,10 @@ class SinusoidGenerator():
             else:
                 x = self.x
         y = self.f(x)
-        return x[:, None], y[:, None]  # x_shape=(x.shape[0], 1), y_shape=(y.shape[0], 1)
-
+        # return x[:, None], y[:, None]  # x_shape=(x.shape[0], 1), y_shape=(y.shape[0], 1)
+        rng = np.random.RandomState(0)
+        noise = rng.random(size=y[:, None].shape)
+        return y[:, None]+noise, y[:, None]
     def equally_spaced_samples(self, K=None, force_new=False):
         '''Returns `K` equally spaced samples.'''
         if K is None:
@@ -80,7 +82,7 @@ def plot(data, *args, **kwargs):
     return plt.plot(x, y, *args, **kwargs)
 
 
-def generate_dataset(K, train_size=20000, test_size=10):
+def generate_dataset(K, train_size:int=20000, test_size:int=10, return_ndarray:bool=True):
     '''Generate train and test dataset.
 
     A dataset is composed of SinusoidGenerators that are able to provide
@@ -90,8 +92,15 @@ def generate_dataset(K, train_size=20000, test_size=10):
     def _generate_dataset(size):
         return [SinusoidGenerator(K=K) for _ in range(size)]  # 维度是[shape(x.shape[0], 1)]
 
-    return _generate_dataset(train_size), _generate_dataset(test_size)
+    def _genersate_dataset_ndarray(size:int):
+        dataset = None
+        for i in range(size):
+            dataset = np.hstack(SinusoidGenerator(K=K).batch())[None, :] if dataset is None else \
+                np.concatenate((dataset, np.hstack(SinusoidGenerator(K=K).batch())[None, :]), axis=0)
+        return dataset
 
+    return (_generate_dataset(train_size), _generate_dataset(test_size)) if not return_ndarray else \
+        (_genersate_dataset_ndarray(train_size), _genersate_dataset_ndarray(test_size))
 
 if __name__ == '__main__':
     # for _ in range(3):
@@ -104,4 +113,4 @@ if __name__ == '__main__':
     # plt.plot(x, y)
     # plt.show()
     train_ds, test_ds = generate_dataset(K=10)
-    print(train_ds.__len__())
+    print(train_ds.shape, test_ds.shape) #(20000, 10, 2) (10, 10, 2)

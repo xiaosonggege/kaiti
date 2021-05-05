@@ -14,7 +14,7 @@ from xinhaoquzao.signal_data import Signal
 import os
 
 class ProcessQuzao:
-    def __init__(self, data:np.ndarray, epoch:int):
+    def __init__(self, data:np.ndarray=None, epoch:int=None):
         self._data_raw = data
         self._encoder_weights = dict()
         self._decoder_weights = dict()
@@ -25,6 +25,14 @@ class ProcessQuzao:
         .repeat(self._epoch)
         self._iterator = self._Dataset.make_initializable_iterator()
         self._next_batch = self._iterator.get_next()
+
+    @property
+    def Dataset(self):
+        return self._Dataset
+
+    @Dataset.setter
+    def Dataset(self, dataset:tf.data.Dataset=None):
+        self._Dataset = dataset
 
     def init(self, sess:tf.Session):
         self._iterator.initializer.run(session=sess)
@@ -45,6 +53,12 @@ class ProcessQuzao:
                 input_size = out_size
 
     def config_decoder_weights(self, input_size:int, *layers):
+        '''
+        解码器目前无用
+        :param input_size:
+        :param layers:
+        :return:
+        '''
         print(input_size)
         with tf.variable_scope(name_or_scope='decoder', reuse=tf.AUTO_REUSE):
             for i, out_size in enumerate(layers):
@@ -90,7 +104,7 @@ class ProcessQuzao:
         return decoder
 
 
-    def train(self):
+    def train(self, input_size:int):
         '''
         '''
         #编码解码器方式的初始化
@@ -105,8 +119,8 @@ class ProcessQuzao:
         # self._loss = tf.reduce_mean(tf.square(decoder_opt - y))
 
         #无编解码器方式的初始化
-        encoder_layers = (100, 200, self._data_raw.shape[-1])
-        self.config_encoder_weights(self._data_raw.shape[-1], *encoder_layers)
+        encoder_layers = (100, 200, input_size)
+        self.config_encoder_weights(input_size, *encoder_layers)
         x, y = self._next_batch
         encoder_opt = self.encoder_forward(x)
         self._loss = tf.reduce_mean(tf.square(encoder_opt - y))
@@ -125,16 +139,19 @@ class ProcessQuzao:
                             'checkpointfile'))
 
             self.init(sess=sess)
-            i = 0
+            i = 1
             loss_optim = 1e9
+            total_loss = 0
             while True:
                 try:
                     _, loss = sess.run(fetches=[opt_update, self._loss])
-                    if i % 1000 == 0:
-                        print(loss)
+                    total_loss += loss
+                    curloss = total_loss / (i + 1)
+                    if i % 100 == 0:
+                        print(curloss)
                     i += 1
-                    if loss < loss_optim:
-                        loss_optim = loss
+                    if curloss < loss_optim:
+                        loss_optim = curloss
                         saver.save(sess=sess, save_path= \
                             os.getcwd() + os.path.sep + 'xinhaoquzao' + os.path.sep +\
                             'checkpointfile' + os.path.sep + 'save_model',
@@ -144,8 +161,21 @@ class ProcessQuzao:
 
 
 if __name__ == '__main__':
+    #内建去噪数据
     sg = Signal(dataset_size=100, feature_size=20)
     dataset = np.hstack((sg.dataset, sg.dataset))
-    # print(dataset.shape)
+    # # print(dataset.shape)
     pq = ProcessQuzao(data=sg.dataset, epoch=500000)
-    pq.train()
+    # pq.train()
+
+    #正弦数据未进行预训练
+    from sindata_example import SinusoidGenerator, generate_dataset
+    s = SinusoidGenerator(K=20)
+    train_ds, test_ds = generate_dataset(K=20)
+    x, y = np.split(train_ds, 2, axis=-1)
+    x = x.reshape(20000, -1)
+    y = y.reshape(20000, -1)
+    train_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x, y)).repeat(50000).batch(100)
+    pq.Dataset = train_ds_Dataset
+    pq.train(input_size=20)
+
