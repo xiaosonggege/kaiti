@@ -82,7 +82,7 @@ def plot(data, *args, **kwargs):
     return plt.plot(x, y, *args, **kwargs)
 
 
-def generate_dataset(K, train_size:int=20000, test_size:int=10, return_ndarray:bool=True):
+def generate_dataset(K, train_size:int=20000, test_size:int=1000, return_ndarray:bool=True):
     '''Generate train and test dataset.
 
     A dataset is composed of SinusoidGenerators that are able to provide

@@ -10,7 +10,6 @@
 '''
 import tensorflow as tf
 import numpy as np
-from sindata_example import SinusoidGenerator
 from signal_data import Signal
 import os
 
@@ -105,45 +104,54 @@ class Meta_process:
         self._fast_weights = dict(zip(self._weights.keys(),
                                   [self._weights[key] - lr * name2grad[key] for key in self._weights.keys()]))
         output_queryset = self._dnn_forward(data_batch=query_x, weights=self._fast_weights)
-        self._query_loss = tf.reduce_mean(tf.square(output_queryset - support_y))
-        self._query_losses = []
-        self._query_total_loss = tf.reduce_mean(self._query_losses)
-        opt_update = self._optimizer.minimize(loss=self._query_total_loss)
+        self._query_loss = tf.reduce_mean(tf.square(output_queryset - query_y))
+        opt_update = self._optimizer.minimize(loss=self._query_loss)
 
-        saver = tf.train.Saver()
+        saver = tf.train.Saver(self._weights)
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            if os.listdir(os.getcwd() + os.path.sep + 'xinhaoquzao' + os.path.sep + \
-                          'checkpointfile'):
+            if os.listdir(os.getcwd() + os.path.sep + 'checkpointfile'):
                 saver.restore(sess=sess, save_path=tf.train.latest_checkpoint(
-                    os.getcwd() + os.path.sep + 'xinhaoquzao' + os.path.sep + \
-                    'checkpointfile'))
+                    os.getcwd() + os.path.sep + 'checkpointfile'))
 
-            self.support_init(sess=sess)
-            self.query_init(sess=sess)
-            i = 1
             loss_optim = 1e9
-            total_loss = 0
-            while True:
-                try:
-                    sess.run(self._fast_weights)
-                    _, query_total_loss = sess.run(fetches=[opt_update, self._query_total_loss])
-                    total_loss += query_total_loss
-                    curloss = total_loss / (i + 1)
-                    if i % 100 == 0:
-                        print(curloss)
-                    i += 1
-                    if curloss < loss_optim:
-                        loss_optim = curloss
-                        saver.save(sess=sess, save_path= \
-                            os.getcwd() + os.path.sep + 'xinhaoquzao' + os.path.sep + \
-                            'checkpointfile' + os.path.sep + 'save_model',
-                                   write_meta_graph=True)
-                except tf.errors.OutOfRangeError:
-                    break
-
-
+            for epoch in range(self._epoch):
+                self.support_init(sess=sess)
+                self.query_init(sess=sess)
+                query_total_loss = 0
+                while True:
+                    try:
+                        sess.run(self._fast_weights)
+                        _, query_loss = sess.run(fetches=[opt_update, self._query_loss])
+                        # print(query_loss)
+                        query_total_loss += query_loss
+                    except tf.errors.OutOfRangeError:
+                        break
+                if epoch % 100 == 0:
+                    print(query_total_loss)
+                if query_total_loss < loss_optim:
+                    loss_optim = query_total_loss
+                    saver.save(sess=sess, save_path=os.getcwd() + os.path.sep + \
+                        'checkpointfile' + os.path.sep + 'save_model', write_meta_graph=True)
 
 
 if __name__ == '__main__':
-    pass
+    # 内建去噪数据
+    sg = Signal(dataset_size=100, feature_size=20)
+    dataset = np.hstack((sg.dataset, sg.dataset))
+    # # print(dataset.shape)
+    from sindata_example import SinusoidGenerator, generate_dataset
+    s = SinusoidGenerator(K=20)
+    train_ds, test_ds = generate_dataset(K=20)
+    x_train, y_train = np.split(train_ds, 2, axis=-1)
+    x_train = x_train.reshape(20000, -1)
+    y_train = y_train.reshape(20000, -1)
+
+    x_test, y_test = np.split(test_ds, 2, axis=-1)
+    x_test = x_test.reshape(1000, -1)
+    y_test = y_test.reshape(1000, -1)
+    train_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x_train, y_train)).batch(512)
+    test_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x_test, y_test)).batch(25)
+    pq = Meta_process(data=sg.dataset, epoch=500000, support_Dataset=train_ds_Dataset, query_Dataset=test_ds_Dataset)
+    # pq.Dataset = train_ds_Dataset
+    pq.meta_train(input_size=20)
