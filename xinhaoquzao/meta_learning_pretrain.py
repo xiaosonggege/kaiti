@@ -134,6 +134,16 @@ class Meta_process:
                     saver.save(sess=sess, save_path=os.getcwd() + os.path.sep + \
                         'checkpointfile' + os.path.sep + 'save_model', write_meta_graph=True)
 
+                return self._optimizer.compute_gradients(self._loss, var_list=self._weights)
+
+    @property
+    def optimizer(self):
+        return self._optimizer
+
+    @optimizer.setter
+    def optimizer(self, optimizer:tf.train.Optimizer):
+        self._optimizer = optimizer
+
 
 if __name__ == '__main__':
     # 内建去噪数据
@@ -152,6 +162,6 @@ if __name__ == '__main__':
     y_test = y_test.reshape(1000, -1)
     train_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x_train, y_train)).batch(512)
     test_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x_test, y_test)).batch(25)
-    pq = Meta_process(data=sg.dataset, epoch=500000, support_Dataset=train_ds_Dataset, query_Dataset=test_ds_Dataset)
+    pq = Meta_process(epoch=500000, support_Dataset=train_ds_Dataset, query_Dataset=test_ds_Dataset)
     # pq.Dataset = train_ds_Dataset
     pq.meta_train(input_size=20)
