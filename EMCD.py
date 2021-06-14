@@ -14,9 +14,12 @@ sys.path.append('/root/PyEMD/')
 from PyEMD import EMD, Visualisation
 
 class EMDblock:
-    def __init__(self, signal:np.ndarray, imfs_num:int):
+    def __init__(self, signal:np.ndarray, imfs_num:int=-1):
         self._signal = signal
         self._imfs_num = imfs_num
+
+    def __call__(self, *args, **kwargs):
+        return self.fenjie()
 
     @property
     def signal(self):

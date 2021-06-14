@@ -10,7 +10,7 @@
 '''
 import tensorflow as tf
 import numpy as np
-from signal_data import Signal
+from neural_work.signal_data import Signal
 import os
 
 class Meta_process:
@@ -93,7 +93,7 @@ class Meta_process:
             output = tf.nn.softplus(output)
         return output
 
-    def meta_train(self, input_size:int):
+    def meta_train(self, input_size:int, is_training:bool=True):
         '''
         meta learning
         :return:

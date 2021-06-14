@@ -10,15 +10,15 @@
 '''
 import tensorflow as tf
 import numpy as np
-from xinhaoquzao.signal_data import Signal
+from neural_work.signal_data import Signal
 import os
 
 class ProcessQuzao:
-    def __init__(self, data:np.ndarray=None, epoch:int=None):
+    def __init__(self, data:np.ndarray=None, batch_size:int=100, epoch:int=None):
         self._data_raw = data
         self._encoder_weights = dict()
         self._decoder_weights = dict()
-        self._batch_size = 100
+        self._batch_size = batch_size
         self._epoch = epoch
         self._Dataset = tf.data.Dataset.from_tensor_slices(tensors=(self._data_raw, self._data_raw))\
         .batch(batch_size=self._batch_size)\
@@ -104,7 +104,7 @@ class ProcessQuzao:
         return decoder
 
 
-    def train(self, input_size:int):
+    def train_and_predict(self, input_size:int, is_training:bool=True):
         '''
         '''
         #编码解码器方式的初始化
@@ -123,6 +123,24 @@ class ProcessQuzao:
         self.config_encoder_weights(input_size, *encoder_layers)
         x, y = self._next_batch
         encoder_opt = self.encoder_forward(x)
+        # ===================inference====================
+        if is_training is False:
+            saver = tf.train.Saver()
+            sess = tf.Session()
+            sess.run(tf.global_variables_initializer())
+            if os.listdir(os.getcwd() + os.path.sep + 'neural_work' + os.path.sep + \
+                          'checkpointfile'):
+                saver.restore(sess=sess, save_path=tf.train.latest_checkpoint(
+                    os.getcwd() + os.path.sep + 'neural_work' + os.path.sep + \
+                    'checkpointfile'))
+
+            self.init(sess=sess)
+            signal = sess.run(encoder_opt)
+            sess.close()
+            print('去噪模块inference完毕')
+            return signal
+        # ===================training=====================
+
         self._loss = tf.reduce_mean(tf.square(encoder_opt - y))
         self._optimizer = tf.train.AdamOptimizer(learning_rate=1e-3)
         gvs = self._optimizer.compute_gradients(loss=self._loss,
@@ -133,9 +151,9 @@ class ProcessQuzao:
         saver = tf.train.Saver()
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            if os.listdir(os.getcwd() + os.path.sep + 'xinhaoquzao' + os.path.sep +\
+            if os.listdir(os.getcwd() + os.path.sep + 'neural_work' + os.path.sep +\
                             'checkpointfile'):
-                saver.restore(sess=sess, save_path=tf.train.latest_checkpoint(os.getcwd() + os.path.sep + 'xinhaoquzao' + os.path.sep +\
+                saver.restore(sess=sess, save_path=tf.train.latest_checkpoint(os.getcwd() + os.path.sep + 'neural_work' + os.path.sep +\
                             'checkpointfile'))
 
             self.init(sess=sess)
@@ -153,7 +171,7 @@ class ProcessQuzao:
                     if curloss < loss_optim:
                         loss_optim = curloss
                         saver.save(sess=sess, save_path= \
-                            os.getcwd() + os.path.sep + 'xinhaoquzao' + os.path.sep +\
+                            os.getcwd() + os.path.sep + 'neural_work' + os.path.sep +\
                             'checkpointfile' + os.path.sep + 'save_model',
                                    write_meta_graph=True)
                 except tf.errors.OutOfRangeError:
@@ -177,5 +195,5 @@ if __name__ == '__main__':
     y = y.reshape(20000, -1)
     train_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x, y)).repeat(50000).batch(512)
     pq.Dataset = train_ds_Dataset
-    pq.train(input_size=20)
+    pq.train_and_predict(input_size=20)
 
