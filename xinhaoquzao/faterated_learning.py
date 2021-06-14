@@ -15,16 +15,23 @@ from sindata_example import SinusoidGenerator, generate_dataset
 from signal_data import Signal
 from processQuzao import ProcessQuzao
 from meta_learning_pretrain import Meta_process
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 # TODO 利用A3C算法思路构建多线程联邦学习以及应用黄科力的论文思路复现
 class Fl:
     def __init__(self, datas:list):
         self._datas = datas
         self._gradient_dict = multiprocessing.Manager().dict()
+        # print(dir(self._gradient_dict))
         # self._Meta_learn = Meta_process(epoch=epoch, support_Dataset=)
 
     def faterated_sub_training(self, mp:Meta_process, input_size:int, gradient_dict:dict):
         gradient_sub_dict = mp.meta_train(input_size=input_size)
+        if len(self._gradient_dict) == 0:
+            for key in mp.weights.keys():
+                self._gradient_dict[key] = 0
+        print('gradient_dict当前为:', self._gradient_dict)
         for grad_key in gradient_dict.keys():
             gradient_dict[grad_key] += gradient_sub_dict[grad_key]
 
@@ -33,16 +40,20 @@ class Fl:
         jobs = []
         self._optimizer = None
         for support_Dataset, query_Dataset in self._datas:
+            print('开始联邦训练')
             pq = Meta_process(epoch=epoch, support_Dataset=support_Dataset, query_Dataset=query_Dataset)
             if self._optimizer is None:
                 self._optimizer = pq.optimizer
-            jobs.append(multiprocessing.Process(target=pq.meta_train, args=(pq, 20, self._gradient_dict)))
+            jobs.append(multiprocessing.Process(target=self.faterated_sub_training, args=(pq, 20, self._gradient_dict)))
+            print('结束联邦训练')
         for j in jobs:
+            print('正在联邦训练')
             j.start()
         for j in jobs:
             j.join()
         for key in self._gradient_dict.keys():
             self._gradient_dict[key] /= len(self._datas)
+        print('现在gradient_dict为', self._gradient_dict)
         self._optimizer.apply_gradients(grads_and_vars=self._gradient_dict.items())
 
 
@@ -57,6 +68,8 @@ if __name__ == '__main__':
     y_test = y_test.reshape(1000, -1)
     train_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x_train, y_train)).batch(512)
     test_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x_test, y_test)).batch(25)
-    pq = Meta_process(epoch=500000, support_Dataset=train_ds_Dataset, query_Dataset=test_ds_Dataset)
-    # pq.Dataset = train_ds_Dataset
-    pq.meta_train(input_size=20)
+    # pq = Meta_process(epoch=500000, support_Dataset=train_ds_Dataset, query_Dataset=test_ds_Dataset)
+    # # pq.Dataset = train_ds_Dataset
+    # pq.meta_train(input_size=20)
+    fl = Fl(datas=[(train_ds_Dataset, test_ds_Dataset), (train_ds_Dataset, test_ds_Dataset)])
+    fl.faterated_training(epoch=10)

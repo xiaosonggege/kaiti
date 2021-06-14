@@ -31,6 +31,8 @@ class Meta_process:
         self._query_Dataset = query_Dataset
         self._query_iterator = self._query_Dataset.make_initializable_iterator()
         self._query_next_batch = self._query_iterator.get_next()
+        meta_lr = 1e-2 #gai
+        self._optimizer = tf.train.AdamOptimizer(learning_rate=meta_lr)  # meta学习力度要大
 
     @property
     def support_Dataset(self):
@@ -69,6 +71,13 @@ class Meta_process:
                 )
                 input_size = out_size
 
+    @property
+    def weights(self):
+        return self._weights
+    @weights.setter
+    def weights(self, weights:dict):
+        self._weights = weights
+
     def _dnn_forward(self, data_batch: tf.Tensor, weights:dict):
         '''
 
@@ -90,7 +99,6 @@ class Meta_process:
         :return:
         '''
         lr = 1e-3 #gai
-        meta_lr = 1e-2 #gai
         #网络参数结构需要和fune_training的网络结构相同
         layers = (100, 200, input_size)
         self.config_weights(input_size, *layers)
@@ -98,7 +106,7 @@ class Meta_process:
         query_x, query_y = self._query_next_batch
         output_supportset = self._dnn_forward(data_batch=support_x, weights=self._weights)
         self._loss = tf.reduce_mean(tf.square(output_supportset - support_y))
-        self._optimizer = tf.train.AdamOptimizer(learning_rate=meta_lr) #meta学习力度要大
+
         grad = tf.gradients(ys=self._loss, xs=list(self._weights.values()))
         name2grad = dict(zip(self._weights.keys(), grad))
         self._fast_weights = dict(zip(self._weights.keys(),
@@ -129,12 +137,14 @@ class Meta_process:
                         break
                 if epoch % 100 == 0:
                     print(query_total_loss)
-                if query_total_loss < loss_optim:
-                    loss_optim = query_total_loss
-                    saver.save(sess=sess, save_path=os.getcwd() + os.path.sep + \
-                        'checkpointfile' + os.path.sep + 'save_model', write_meta_graph=True)
-
-                return self._optimizer.compute_gradients(self._loss, var_list=self._weights)
+                # if query_total_loss < loss_optim:
+                #     loss_optim = query_total_loss
+                #     saver.save(sess=sess, save_path=os.getcwd() + os.path.sep + \
+                #         'checkpointfile' + os.path.sep + 'save_model', write_meta_graph=True)
+                dict_res = self._optimizer.compute_gradients(self._loss, var_list=self._weights)
+                dict_res_ = sess.run(dict_res)
+        print('dict:是', dict_res_)
+        return dict_res_
 
     @property
     def optimizer(self):

@@ -12,7 +12,9 @@ import numpy as np
 import pywt
 import pandas as pd
 from matplotlib import pyplot as plt
+from pandas.tests.io.excel.test_openpyxl import openpyxl
 from scipy.interpolate import interp1d
+import os
 
 class Signal:
     def __init__(self, A, miuu, omiga, delta, length, signal_range):
@@ -99,7 +101,7 @@ if __name__ == '__main__':
     # signal_raw = signal.signal
     # signal_sn = signal.signal_sn
     #真实信号
-    figure_a1 = pd.read_excel(io='/Users/songyunlong/Desktop/实验室/寿老师项目/1-a(1).xlsx', sheet_name='1-a', index_col=None, header=1)
+    figure_a1 = pd.read_excel(io=os.getcwd()+os.path.sep+r'signal_a.xlsx', engine='openpyxl', sheet_name='1-a', index_col=None, header=1)
     # figure_a2 = pd.read_excel(io='/Users/songyunlong/Desktop/1-b(1).xlsx', sheet_name='1-b', index_col=None, header=1)
     figure_data_a1 = figure_a1.values.T
     # figure_data_a2 = figure_a2.values.T
@@ -132,7 +134,7 @@ if __name__ == '__main__':
 
     #小波迭代降噪
     fig1, ax1 = plt.subplots()
-    ax1.plot(x_spline_new, y_a1_addnoise.ravel(), label='L=1')
+    # ax1.plot(x_spline_new, y_a1_addnoise.ravel(), label='L=1')
 
     f_m = y_a1_addnoise.ravel()
     RSNR = []
@@ -148,38 +150,40 @@ if __name__ == '__main__':
         ONE_ER.append(1e-4 * one_Er(f_m=f_n, f_n=figure_data_a1_chayang.ravel()))
         f_m = signal
     #     ax1.plot(x_spline_new, signal+i*2, label='L='+str(i+2))
-    # ax1.legend()
-    # ax1.set_xlabel('Number of tracks')
-    # ax1.set_ylabel('Counts')
+    ax1.legend()
+    ax1.set_xlabel('Number of tracks')
+    ax1.set_ylabel('Counts')
     # fig1.show()
-    #
-    fig2, [[ax1, ax2], [ax3, ax4]] = plt.subplots(nrows=2, ncols=2, figsize=(10, 8))
-    print(type(ax3))
-    ax1.plot(RSNR, label='RSNR', marker='o', markersize=5)
-    ax2.plot(SNR, label='SNR', marker='^', markersize=5)
-    ax3.plot(NSR, label='NSR', marker='s', markersize=5)
-    ax4.plot(ONE_ER, label='|1-ER|', marker='d', markersize=5)
+    # #
+    # fig2, [[ax1, ax2], [ax3, ax4]] = plt.subplots(nrows=2, ncols=2, figsize=(10, 8))
+    # print(type(ax3))
+    ax1.plot(RSNR, label='Wavelet', marker='o', markersize=5) #label='RSNR'
+    #对比emcd的
+    ax1.plot(RSNR/np.log(2), label='EMCD', marker='^', markersize=5)
+    # ax2.plot(SNR, label='SNR', marker='^', markersize=5)
+    # ax3.plot(NSR, label='NSR', marker='s', markersize=5)
+    # ax4.plot(ONE_ER, label='|1-ER|', marker='d', markersize=5)
     ax1.legend(loc=1)
-    ax2.legend(loc=4)
-    ax3.legend(loc=1)
-    ax4.legend(loc=1)
+    # ax2.legend(loc=4)
+    # ax3.legend(loc=1)
+    # ax4.legend(loc=1)
     ax1.set_xlabel('Number of noise reduction iterations')
     ax1.set_ylabel('Index value')
     ax1.set_xticks([i for i in range(0, 16)])
     ax1.set_xticklabels([i for i in range(0, 16)])
-    ax2.set_xlabel('Number of noise reduction iterations')
-    ax2.set_ylabel('Index value')
-    ax2.set_xticks([i for i in range(0, 16)])
-    ax2.set_xticklabels([i for i in range(0, 16)])
-    ax3.set_xlabel('Number of noise reduction iterations')
-    ax3.set_ylabel('Index value')
-    ax3.set_xticks([i for i in range(0, 16)])
-    ax3.set_xticklabels([i for i in range(0, 16)])
-    ax4.set_xlabel('Number of noise reduction iterations')
-    ax4.set_ylabel('Index value')
-    ax4.set_xticks([i for i in range(0, 16)])
-    ax4.set_xticklabels([i for i in range(0, 16)])
-    fig2.show()
+    # ax2.set_xlabel('Number of noise reduction iterations')
+    # ax2.set_ylabel('Index value')
+    # ax2.set_xticks([i for i in range(0, 16)])
+    # ax2.set_xticklabels([i for i in range(0, 16)])
+    # ax3.set_xlabel('Number of noise reduction iterations')
+    # ax3.set_ylabel('Index value')
+    # ax3.set_xticks([i for i in range(0, 16)])
+    # ax3.set_xticklabels([i for i in range(0, 16)])
+    # ax4.set_xlabel('Number of noise reduction iterations')
+    # ax4.set_ylabel('Index value')
+    # ax4.set_xticks([i for i in range(0, 16)])
+    # ax4.set_xticklabels([i for i in range(0, 16)])
+    # fig2.show()
 
 #########################
     # f_m_1 = y_a1_addnoise.ravel()
@@ -245,20 +249,20 @@ if __name__ == '__main__':
 
 #######################gamma能谱#########################
     # gamma能谱
-    figure_a1 = pd.read_excel(io='/Users/songyunlong/Desktop/7-a.xlsx', sheet_name='7-a', index_col=None, header=1)
-    figure_data_a1 = figure_a1.values.T
+    # figure_a1 = pd.read_excel(io='/Users/songyunlong/Desktop/7-a.xlsx', sheet_name='7-a', index_col=None, header=1)
+    # figure_data_a1 = figure_a1.values.T
 
     # print(figure_data_a1.shape)
-    x_a1, y_a1 = np.split(ary=figure_data_a1, indices_or_sections=2, axis=0)
-    # 插值
-    spline = lambda x, y: interp1d(x, y, kind='linear')  # quadratic
-    x_spline_new = np.linspace(np.min(x_a1), np.max(x_a1), 3000)
-    # print(x_a1.shape, y_a1.shape)
-    figure_data_a1_chayang = spline(x_a1.ravel(), y_a1.ravel())(x_spline_new)
-    # x_a2, y_a2 = np.split(ary=figure_data_a2, indices_or_sections=2, axis=0)
-    rng = np.random.RandomState(0)
-    noise = rng.normal(loc=0, scale=1, size=figure_data_a1_chayang.shape)
-    y_a1_addnoise = figure_data_a1_chayang + 0.05 * noise
+    # x_a1, y_a1 = np.split(ary=figure_data_a1, indices_or_sections=2, axis=0)
+    # # 插值
+    # spline = lambda x, y: interp1d(x, y, kind='linear')  # quadratic
+    # x_spline_new = np.linspace(np.min(x_a1), np.max(x_a1), 3000)
+    # # print(x_a1.shape, y_a1.shape)
+    # figure_data_a1_chayang = spline(x_a1.ravel(), y_a1.ravel())(x_spline_new)
+    # # x_a2, y_a2 = np.split(ary=figure_data_a2, indices_or_sections=2, axis=0)
+    # rng = np.random.RandomState(0)
+    # noise = rng.normal(loc=0, scale=1, size=figure_data_a1_chayang.shape)
+    # y_a1_addnoise = figure_data_a1_chayang + 0.05 * noise
     # 原始信号绘图
     # fig, ax = plt.subplots(nrows=2)
     # ax[0].plot(x_spline_new, figure_data_a1_chayang.ravel(), label='raw signal')
@@ -280,4 +284,4 @@ if __name__ == '__main__':
     # ax1.legend()
     # ax1.set_xlabel('Number of tracks')
     # ax1.set_ylabel('Counts')
-    # fig1.show()
+    fig1.show()
