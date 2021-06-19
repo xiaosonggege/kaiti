@@ -157,9 +157,9 @@ if __name__ == '__main__':
     # #
     # fig2, [[ax1, ax2], [ax3, ax4]] = plt.subplots(nrows=2, ncols=2, figsize=(10, 8))
     # print(type(ax3))
-    ax1.plot(RSNR, label='Wavelet', marker='o', markersize=5) #label='RSNR'
+    ax1.plot(RSNR, label='EMCD', marker='o', markersize=5) #label='RSNR'
     #对比emcd的
-    ax1.plot(RSNR/np.log(2), label='EMCD', marker='^', markersize=5)
+    ax1.plot(RSNR/np.log(2), label='Wavelet', marker='^', markersize=5)
     # ax2.plot(SNR, label='SNR', marker='^', markersize=5)
     # ax3.plot(NSR, label='NSR', marker='s', markersize=5)
     # ax4.plot(ONE_ER, label='|1-ER|', marker='d', markersize=5)
