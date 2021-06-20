@@ -15,6 +15,7 @@ import copy
 from matplotlib import pyplot as plt
 from xiaobo import Waveleting, Rsnr
 from scipy.interpolate import interp1d
+import os
 
 def erase_basic_line(signal:np.ndarray, height:float, threshold:float=None, distance:float=None, prominence:float=None, width:float=None):
     """
@@ -43,9 +44,54 @@ def peaks_area(signal:np.ndarray, peaks:np.ndarray):
             np.hstack((area_array, np.array([np.sum(signal[peaks[i], peaks[i+1+1]])])))
     return area_array
 
+def peak_with_boundary():
+    figure_a1 = pd.read_excel(io=os.path.abspath(os.path.dirname(os.getcwd())) + os.path.sep + '伽马谱仿真结果.xlsx',
+                              engine='openpyxl', sheet_name='Sheet1', index_col=None, header=None)
+    figure_data_a1 = figure_a1.values.T
+    x_a1, y_a1 = np.split(ary=figure_data_a1, indices_or_sections=2, axis=0)
+    x_a1 = x_a1.ravel()
+    y_a1 = y_a1.ravel()
+    signal = Waveleting(signal=y_a1, threshold=1e-3)(6)
+    peaks = erase_basic_line(copy.deepcopy(signal), height=-0.2 * 1e-7, width=7, distance=4)
+    peaks = np.insert(peaks, 0, 0)
+    peaks = np.append(peaks, x_a1.__len__() - 1)
+    spline = lambda x, y: interp1d(x, y, kind='quadratic')  # quadratic
+    x_spline_new = np.linspace(np.min(x_a1[peaks]), np.max(x_a1[peaks]), signal.shape[0])
+    # 插样后的基线图线
+    peaks_chayang = spline(x_a1[peaks], signal[peaks])(x_spline_new)
+
+    # 去基线
+    qujixian_result = np.where(signal - peaks_chayang > 0, signal - peaks_chayang, 0)
+    peaks_high, _ = peak_id, peak_property = find_peaks(qujixian_result, height=1e-9, prominence=1e-8)
+    # 峰值及左右边界
+    peaks_range = np.insert(peaks_high, 0, x_a1[0])
+    peaks_range = np.append(peaks_range, x_a1.__len__() - 1)
+    # 峰值区域边界点高度阈值
+    Th = 1e-7 * 1e-3
+    peaks_start = []
+    # print(peaks_range)
+    # 向左遍历
+    for i in range(1, peaks_range.__len__() - 1):
+        for j in reversed(range(peaks_range[i - 1], peaks_range[i])):
+            if qujixian_result[j] <= Th:
+                peaks_start.append(j)
+                break
+
+    peaks_end = []
+    # 向右遍历
+    for i in range(1, peaks_range.__len__() - 1):
+        for j in range(peaks_range[i], peaks_range[i + 1]):
+            if qujixian_result[j] <= Th:
+                peaks_end.append(j)
+                break
+
+    peaks_start_end = np.hstack((np.array(peaks_start), np.array(peaks_end)))
+    peaks_start_end = np.sort(peaks_start_end)
+    return qujixian_result, peaks_start, peaks_end, peaks_start_end
+
 if __name__ == '__main__':
     # gamma能谱
-    figure_a1 = pd.read_excel(io='/Users/songyunlong/Desktop/实验室/寿老师项目/能谱分析/伽马谱仿真结果.xlsx', sheet_name='Sheet1', index_col=None, header=None)
+    figure_a1 = pd.read_excel(io=os.path.abspath(os.path.dirname(os.getcwd()))+os.path.sep+'伽马谱仿真结果.xlsx', engine='openpyxl', sheet_name='Sheet1', index_col=None, header=None)
     # print(figure_a1)
     figure_data_a1 = figure_a1.values.T
     x_a1, y_a1 = np.split(ary=figure_data_a1, indices_or_sections=2, axis=0)

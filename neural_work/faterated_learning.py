@@ -18,6 +18,8 @@ from meta_learning_pretrain import Meta_process
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
+
+
 # TODO 利用A3C算法思路构建多线程联邦学习以及应用黄科力的论文思路复现
 class Fl:
     def __init__(self, datas:list):

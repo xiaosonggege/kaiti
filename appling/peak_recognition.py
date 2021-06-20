@@ -22,8 +22,10 @@ from sklearn.metrics import precision_score, recall_score, f1_score
 from sklearn import model_selection
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
+from basic_line import peak_with_boundary
 
 LEN_PER_FEATURE = 10
+REPEAT = 10
 class Regression:
 
     @staticmethod
@@ -198,6 +200,7 @@ class Regression:
     def training_main_distinct(self, model_name, model, save_path, Threshold=None):
         '''
         针对多个模型进行训练操作
+        粒子甄别
         :param model_name: 模型名称
         :param model: 需要训练的模型
         :return: None
@@ -287,14 +290,44 @@ def model_main(dataset_findpeak, dataset_distinct, operation):
         regression.training_main_findpeak(model_name='minidictlearn分类器', model=minidictlearn, save_path='./minidictlearn_model_findpeak')
         regression.training_main_distinct(model_name='minidictlearn分类器', model=minidictlearn, save_path='./minidictlearn_model_distinct')
 
+def data_maker():
+    # =======原始信号=========
+    qujixian_result, peaks_start, peaks_end, peaks_with_boundary = peak_with_boundary()
+    # print(qujixian_result.shape)
+    # 制作本底甄别label(000001111000...)
+    bendi_label = np.zeros(shape=qujixian_result.shape)
+    for pos in range(0, peaks_with_boundary.shape[0], 2):
+        bendi_label[peaks_with_boundary[pos]:peaks_with_boundary[pos+1]] = 1
+    #制作粒子甄别样本
+    fengzhi_label = np.zeros(shape=qujixian_result.shape)
+    flag = 1
+    for pos in range(peaks_with_boundary.shape[0]):
+        fengzhi_label[pos] = 1 if flag == 1 else 2
+        flag = 1 - flag
+    #本底甄别dataset制作 单个样本feature长度为LEN_PER_FEATURE
+    bendi_feature = qujixian_result.reshape(-1, LEN_PER_FEATURE)
+    bendi_label = bendi_label.reshape(-1, LEN_PER_FEATURE)
+    bendi_dataset = np.hstack((bendi_feature, bendi_label))
+    bendi_dataset = np.tile(bendi_dataset, reps=(REPEAT, 1))
+
+    #粒子甄别dataset制作 单个样本feature长度为LEN_PER_FEATURE
+    fengzhi_feature = qujixian_result.reshape(-1, LEN_PER_FEATURE)
+    fengzhi_label = fengzhi_label.reshape(-1, LEN_PER_FEATURE)
+    fengzhi_dataset = np.hstack((fengzhi_feature, fengzhi_label))
+    fengzhi_dataset = np.tile(fengzhi_dataset, reps=(REPEAT, 1))
+    return bendi_dataset, fengzhi_dataset
+
 if __name__ == '__main__':
     # ========>debug========>
-    #findpeak_debug
-    dataset_findpeak = np.random.normal(size=(100, 10+10))
-    print(dataset_findpeak.shape)
-    #distinct_debug
-    dataset_distinct = np.random.normal(size=(100, 10+10))
-
+    # #findpeak_debug
+    # dataset_findpeak = np.random.normal(size=(100, 10+10))
+    # print(dataset_findpeak.shape)
+    # #distinct_debug
+    # dataset_distinct = np.random.normal(size=(100, 10+10))
+    #
+    dataset_findpeak, dataset_distinct = data_maker()
     model_main(dataset_findpeak=dataset_findpeak, dataset_distinct=dataset_distinct, operation='XGBoost')
+
+
 
 
