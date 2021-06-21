@@ -2,7 +2,7 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$" />
-    <orderEntry type="jdk" jdkName="Remote Python 3.7.0 (sftp://root@10.103.238.163:22/root/anaconda3/envs/tensorflow_1_14/bin/python3.7)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.7 (IndustryEnvironment)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
