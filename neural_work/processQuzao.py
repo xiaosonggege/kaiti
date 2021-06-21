@@ -8,10 +8,19 @@
 @file: processQuzao
 @time: 2021/3/10 8:13 下午
 '''
+import sys
+import os
+
+sys.path.append('./')
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
+print(sys.path)
 import tensorflow as tf
 import numpy as np
 from neural_work.signal_data import Signal
-import os
+from neural_work.sindata_example import SinusoidGenerator, generate_dataset
+
 
 class ProcessQuzao:
     def __init__(self, data:np.ndarray=None, batch_size:int=100, epoch:int=None):
@@ -151,10 +160,10 @@ class ProcessQuzao:
         saver = tf.train.Saver()
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            if os.listdir(os.getcwd() + os.path.sep + 'neural_work' + os.path.sep +\
-                            'checkpointfile'):
-                saver.restore(sess=sess, save_path=tf.train.latest_checkpoint(os.getcwd() + os.path.sep + 'neural_work' + os.path.sep +\
-                            'checkpointfile'))
+            # if os.listdir(os.getcwd() + os.path.sep + 'neural_work' + os.path.sep +\
+            #                 'checkpointfile'):
+            #     saver.restore(sess=sess, save_path=tf.train.latest_checkpoint(os.getcwd() + os.path.sep + 'neural_work' + os.path.sep +\
+            #                 'checkpointfile'))
 
             self.init(sess=sess)
             i = 1
@@ -170,10 +179,10 @@ class ProcessQuzao:
                     i += 1
                     if curloss < loss_optim:
                         loss_optim = curloss
-                        saver.save(sess=sess, save_path= \
-                            os.getcwd() + os.path.sep + 'neural_work' + os.path.sep +\
-                            'checkpointfile' + os.path.sep + 'save_model',
-                                   write_meta_graph=True)
+                        # saver.save(sess=sess, save_path= \
+                        #     os.getcwd() + os.path.sep + 'neural_work' + os.path.sep +\
+                        #     'checkpointfile' + os.path.sep + 'save_model',
+                        #            write_meta_graph=True)
                 except tf.errors.OutOfRangeError:
                     break
 
@@ -187,7 +196,6 @@ if __name__ == '__main__':
     # pq.train()
 
     #正弦数据未进行预训练
-    from sindata_example import SinusoidGenerator, generate_dataset
     s = SinusoidGenerator(K=20)
     train_ds, test_ds = generate_dataset(K=20)
     x, y = np.split(train_ds, 2, axis=-1)

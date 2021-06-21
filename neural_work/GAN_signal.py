@@ -8,245 +8,355 @@
 @file: GAN_signal
 @time: 2021/6/19 10:21 下午
 '''
-import os
-import ast
-import json
-from types import SimpleNamespace
+import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
+from matplotlib import animation
+from scipy.stats import norm #scipy 数值计算库
+import seaborn as sns #数据模块可视化
+import argparse #解析命令行参数
 
-FLAGS = None
+sns.set(color_codes=True) #设置主题颜色
+seed=42
+#设置随机数，使得每次生成的随机数相同
+np.random.seed(seed)
+tf.set_random_seed(seed)
 
+#define Gauss distribution:mean =4, std=0.5
+class DataDistribution(object):
+    def __init__(self):
+        self.mu= 4
+        self.sigma=0.5
+    #define sampling function
+    def samples(self,N):
+        #generate the number of n samples that mean=mu,std=sigama
+        samples=np.random.normal(self.mu,self.sigma,N)
+        samples.sort()
+        return samples
 
-def input_fn(path):
-    dataset = tf.data.TFRecordDataset(path)
-    dataset = dataset.apply(
-        tf.data.experimental.shuffle_and_repeat(FLAGS.buffer_size, None))
-    dataset = dataset.apply(
-        tf.data.experimental.map_and_batch(_parse_fn, FLAGS.batch_size, num_parallel_batches=os.cpu_count()))
-    dataset = dataset.prefetch(FLAGS.n_prefetch)
-    return dataset
+#define a liner computation function
+#args input:the inputting samples, output_dim:the dimension of output
+#scope:variable space, stddev:std
+#the liner function is to compute y=wx+b
+def linear(input, output_dim, scope=None, stddev=1.0):
+    #initialize the norm randoms
+    norm = tf.random_normal_initializer(stddev=stddev)
+    #initialize the const
+    const= tf.constant_initializer(0.0)
+    #computet the y=wx+b
+    #open the variable space named arg scope or 'linear'
+    with tf.variable_scope(scope or 'linear'):
+        #get existed variable named 'w' whose shape is defined as [input,get_shape()[1],output_dim]
+        #and use norm or const distribution to initialize the tensor
+        w = tf.get_variable('w',[input.get_shape()[1],output_dim],initializer=norm)
+        b= tf.get_variable('b', [output_dim],initializer=const)
+        return tf.matmul(input,w)+b
 
+#define the noise distribution
+#use linear space to split -range to range into N parts plus random noise
+class GeneratorDistribution():
+    def __init__(self,range):
+        self.range=range
+    def samples(self,N):
+        return np.linspace(-self.range,self.range,N)+np.random.random(N)*0.01
 
-def _parse_fn(example):
-    image, label = _decode(example)
-    image = _normalize(image)
-    image = _transform(image)
-    return image, label
+#define generator nets using soft-plus function
+#whose nets have only one hidden layer one input layer
+def generator(input, hidden_size):
+    #soft-plus function:log(exp(features)+1)
+    #h0 represents the output of the input layer
+    h0=tf.nn.softplus(linear(input, hidden_size),'g0')
+    #the output dimension is 1
+    h1=linear(h0,1,'g1')
+    return h1
 
+#define the discriminator nets using deep tanh function
+#because the discriminator nets usually have the stronger learning abilitiy
+#to train the better generator
+def discriminator(input, hidden_size,minibatch_layer=True):
+    #the output dimension is 2 multiply hidden_size because its need to be deep
+    h0=tf.tanh(linear(input,hidden_size*2,'d0'))
+    h1=tf.tanh(linear(h0,hidden_size*2,'d1'))
+    if minibatch_layer:
+        h2=minibatch(h1)
+    else:
+        h2=tf.tanh(linear(h1, hidden_size*2,'d2'))
+    h3 = tf.sigmoid(linear(h2, 1, 'd3'))
+    return h3
 
-def _decode(example):
-    features = tf.parse_single_example(
-        example,
-        features={
-            'image': tf.FixedLenFeature([], tf.string),
-            'label': tf.FixedLenFeature([], tf.int64)})
-    image = tf.image.decode_jpeg(features['image'], channels=1)
-    label = tf.cast(features['label'], tf.int32)
-    return image, label
+def minibatch(input, num_kernels=5, kernel_dim=3):
+    x=linear(input, num_kernels*kernel_dim,scope='minibatch',stddev=0.02)
+    activation=tf.reshape(x,(-1, num_kernels,kernel_dim))
+    diffs=tf.expand_dims(activation,3)-tf.expand_dims(tf.transpose(activation,[1,2,0]),0)
+    abs_diffs=tf.reduce_sum(tf.abs(diffs),2)
+    minibatch_features=tf.reduce_sum(tf.exp(-abs_diffs),2)
+    return tf.concat([input, minibatch_features],1)
 
-
-def _transform(image):
-    image = tf.image.random_brightness(image, 0.5)
-    image = tf.image.random_flip_left_right(image)
-    image = tf.image.random_flip_up_down(image)
-    if FLAGS.channels_first:
-        image = tf.transpose(image, [2, 0, 1])
-    return image
-
-
-def _normalize(image):
-    image = tf.image.convert_image_dtype(image, tf.float32)
-    image = image - 0.5
-    return image
-
-
-def get_projection_input(images):
-    if FLAGS.channels_first:
-        images = tf.transpose(images, [0, 2, 3, 1])
-    # pad to 3 channels
-    images = tf.pad(images, [[0, 0], [0, 0], [0, 0], [1, 1]])
-    images = tf.image.resize_images(images, FLAGS.projection_size)
-    return images
-
-
-def get_projection(images):
-    projection_input = get_projection_input(images)
-    incepv3 = tf.keras.applications.InceptionV3(
-        weights='imagenet', include_top=False, input_tensor=projection_input, pooling='avg')
-    projection = incepv3.output
-    return projection
-
-
-def model_fn(features, labels, mode, params):
-    # projection = get_projection(features)
-    # pseudo_label = tf.argmax(projection, -1)
-
-    g_labels = tf.random_uniform((FLAGS.batch_size,), maxval=FLAGS.n_class, dtype=tf.int32, name='g_labels')
-
-    noise = tf.random_normal((FLAGS.batch_size, FLAGS.z_shape), name='noise')
-    valid = tf.ones((FLAGS.batch_size), tf.int32, 'valid')
-    fake = tf.zeros((FLAGS.batch_size), tf.int32, 'fake')
-
-    g_sample = generator(noise, g_labels, mode)
-    d_logits_real, cls_logits_real = discriminator(features, mode)
-    d_logits_fake, cls_logits_fake = discriminator(g_sample, mode, reuse=True)
-
-    predictions = tf.argmax(cls_logits_real, -1, 'predictions', output_type=tf.int32)
-
-    # PREDICTION
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
-
-    g_loss = tf.add_n([
-        tf.losses.sparse_softmax_cross_entropy(valid, d_logits_fake, scope='losses/g_validity'),
-        tf.losses.sparse_softmax_cross_entropy(g_labels, cls_logits_fake, scope='losses/g_cls')],
-        'g_loss')
-    d_loss = tf.add_n([
-        tf.losses.sparse_softmax_cross_entropy(valid, d_logits_real, scope='losses/d_validity'),
-        tf.losses.sparse_softmax_cross_entropy(fake, d_logits_fake, scope='losses/d_g_validity'),
-        tf.losses.sparse_softmax_cross_entropy(labels, cls_logits_real, scope='losses/d_cls')],
-        'd_loss')
-    loss = tf.add_n([g_loss, d_loss], 'losses/loss')
-
-    if FLAGS.channels_first:
-        g_sample = tf.transpose(g_sample, [0, 2, 3, 1])
-    tf.summary.image('g_sample', g_sample)
-    tf.summary.scalar('g_loss', g_loss)
-    tf.summary.scalar('d_loss', d_loss)
-
-    train_accuracy = tf.reduce_mean(tf.cast(tf.equal(labels, predictions), tf.float32))
-    tf.summary.scalar('train_accuracy', train_accuracy)
-
-    tf.print(labels, output_stream=tf.logging.info)
-    tf.print(tf.shape(labels), output_stream=tf.logging.info)
-    tf.print(predictions, output_stream=tf.logging.info)
-    tf.print(tf.shape(labels), output_stream=tf.logging.info)
-
-    accuracy = tf.metrics.accuracy(labels, predictions, name='accuracy')
-    metrics = {
-        "accuracy": accuracy
-    }
-    tf.summary.scalar('accuracy', accuracy[1])
-
-    if mode == tf.estimator.ModeKeys.TRAIN:
-        g_var = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, 'GAN/generator')
-        d_var = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, 'GAN/discriminator')
-        optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate, FLAGS.beta1)
-        g_op = optimizer.minimize(g_loss, tf.train.get_global_step(), g_var)
-        d_op = optimizer.minimize(d_loss, tf.train.get_global_step(), d_var)
-        train_op = tf.group(g_op, d_op)
-        return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op, eval_metric_ops=metrics)
-
-    # EVAL
-    return tf.estimator.EstimatorSpec(mode=mode, loss=loss, eval_metric_ops=metrics)
-
-
-def _bn(x, mode):
-    training = mode == tf.estimator.ModeKeys.TRAIN
-    bn_axis = 1 if FLAGS.channels_first else -1
-    return tf.layers.batch_normalization(x, bn_axis, FLAGS.momentum, training=training)
-
-
-def generator(noise, labels, mode, reuse=False):
-    def _deconv(x, filters):
-        return tf.layers.conv2d_transpose(x, filters, 3, 2, 'same', FLAGS.data_format, tf.nn.relu)
-
-    with tf.variable_scope('GAN/generator', reuse=reuse):
-        embedding = tf.get_variable('embedding', (FLAGS.n_class, FLAGS.z_shape))
-        embedded = tf.nn.embedding_lookup(embedding, labels)
-        embedded = tf.layers.flatten(embedded)
-
-        x = tf.multiply(noise, embedded)
-
-        x = tf.layers.dense(x, 64 * 6 * 6, tf.nn.relu)
-        x = tf.reshape(x, (-1, 64, 6, 6) if FLAGS.channels_first else (-1, 6, 6, 64))
-        x = _bn(x, mode)
-        x = _deconv(x, 128)  # 12x12
-        x = _bn(x, mode)
-        x = _deconv(x, 128)  # 24x24
-        x = _bn(x, mode)
-        x = tf.pad(
-            x, [[0, 0], [0, 0], [0, 1], [0, 1]] if FLAGS.channels_first
-            else [[0, 0], [0, 1], [0, 1], [0, 0]])  # 25x25
-        x = _deconv(x, 128)  # 50x50
-        x = _bn(x, mode)
-        x = _deconv(x, 64)  # 100x100
-        x = _bn(x, mode)
-        x = tf.layers.conv2d(
-            x, FLAGS.channels, 3, 1, 'same', FLAGS.data_format, name='g_sample')
-
-        return x
-
-
-def discriminator(image, mode, reuse=False):
-    def _conv(x, filters):
-        return tf.layers.conv2d(
-            x, filters, 3, 2, 'same', FLAGS.data_format, activation=tf.nn.leaky_relu)
-
-    def _dropout(x):
-        training = mode == tf.estimator.ModeKeys.TRAIN
-        return tf.layers.dropout(x, FLAGS.drop_rate, training=training)
-
-    with tf.variable_scope('GAN/discriminator', reuse=reuse):
-        x = _conv(image, 16)  # 50x50
-        x = _dropout(x)
-        x = _conv(x, 32)  # 25x25
-        x = _dropout(x)
-        x = _bn(x, mode)
-        x = _conv(x, 64)  # 13x13
-        x = _dropout(x)
-        x = _bn(x, mode)
-        x = _conv(x, 128)  # 7x7
-        x = _dropout(x)
-        x = _bn(x, mode)
-        x = _conv(x, 256)  # 4x4
-        x = _dropout(x)
-        x = tf.reduce_mean(x, [2, 3] if FLAGS.channels_first else [1, 2])
-
-        d_logits = tf.layers.dense(x, 2, name='d_logits')
-        cls_logits = tf.layers.dense(x, FLAGS.n_class, name='cls_logits')
-
-        return d_logits, cls_logits
-
-
-def main(_):
-    # distribute = tf.contrib.distribute.ParameterServerStrategy(FLAGS.gpus)
-    config = tf.estimator.RunConfig(
-        save_summary_steps=1000,
-        log_step_count_steps=1000,
-        # train_distribute=distribute,
-        # eval_distribute=distribute
+#define optimizer
+#using decay learning and GradientDescentOptimizer
+def optimizer(loss, val_list,initial_learning_rate=0.005):
+    decay=0.95 #the speed of decline
+    num_decay_steps= 150 #for every 150 steps learning rate decline
+    batch=tf.Variable(0)
+    learning_rate=tf.train.exponential_decay(
+        initial_learning_rate,
+        batch,
+        num_decay_steps,
+        decay,
+        staircase=True
     )
+    optimizer=tf.train.GradientDescentOptimizer(learning_rate).minimize(
+        loss,
+        global_step=batch,
+        var_list=val_list
+    )
+    return optimizer
 
-    model = tf.estimator.Estimator(model_fn, FLAGS.model_dir, config)
+class GAN(object):
+    def __init__(self,data,gen,num_steps,batch_size,minibatch,log_every,anim_path):
+        self.data=data
+        self.gen=gen
+        self.num_steps=num_steps
+        self.batch_size=batch_size
+        self.minibatch=minibatch
+        self.log_every=log_every
+        self.mlp_hidden_size=4
+        self.anim_path=anim_path
+        self.anim_frames=[]
 
-    # train_spec = tf.estimator.TrainSpec(lambda: input_fn(FLAGS.train_data), max_steps=FLAGS.max_steps)
-    # eval_spec = tf.estimator.EvalSpec(lambda: input_fn(FLAGS.valid_data))
+        #if using minibatch then decline the learning rate
+        #or improve the learning rate
+        if self.minibatch:
+            self.learning_rate=0.005
+        else:
+            self.learning_rate=0.03
 
-    # tf.estimator.train_and_evaluate(model, train_spec, eval_spec)
+        self._create_model()
 
-    model.train(lambda: input_fn(FLAGS.train_data), max_steps=FLAGS.max_steps)
-    model.evaluate(lambda: input_fn(FLAGS.train_data))
+    def _create_model(self):
+        #in order to make sure that the discriminator is  providing useful gradient
+        #imformation,we are going to pretrain the discriminator using a maximum
+        #likehood objective,we define the network for this pretraining step scoped as D_pre
+        with tf.variable_scope('D_pre'):
+            self.pre_input=tf.placeholder(tf.float32,shape=[self.batch_size,1])
+            self.pre_labels=tf.placeholder(tf.float32,shape=[self.batch_size,1])
+            D_pre=discriminator(self.pre_input, self.mlp_hidden_size,self.minibatch)
+            self.pre_loss=tf.reduce_mean(tf.square(D_pre-self.pre_labels))
+            self.pre_opt=optimizer(self.pre_loss,None,self.learning_rate,)
+
+        #this defines the generator network:
+        #it takes samples from a noise distribution
+        #as input, and passes them through an MLP
+        with tf.variable_scope('Gen'):
+            self.z=tf.placeholder(tf.float32,[self.batch_size,1])
+            self.G=generator(self.z,self.mlp_hidden_size)
+
+        #this discriminator tries to tell the difference between samples
+        #from  the true
+        #x is the real sample while z is the generated samples
+        with tf.variable_scope('Disc') as scope:
+            self.x=tf.placeholder(tf.float32,[self.batch_size,1])
+            self.D1=discriminator(self.x,self.mlp_hidden_size,self.minibatch)
+            scope.reuse_variables()
+            self.D2=discriminator(self.G,self.mlp_hidden_size,self.minibatch)
+
+        #define the loss for discriminator and generator network
+        #and create optimizer for both
+        self.loss_d=tf.reduce_mean(-tf.log(self.D1)-tf.log(1-self.D2))
+        self.loss_g=tf.reduce_mean(-tf.log(self.D2))
+
+        self.d_pre_params=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'D_pre')
+        self.d_params=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'Disc')
+        self.g_params=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,'Gen')
+
+        self.opt_d=optimizer(self.loss_d,self.d_params,self.learning_rate)
+        self.opt_g=optimizer(self.loss_g,self.g_params,self.learning_rate)
+
+    def train(self):
+        with tf.Session() as session:
+            tf.global_variables_initializer().run()
+            #pretraining discriminator
+            num_pretraining_steps=1000
+            for step in range(num_pretraining_steps):
+                d=(np.random.random(self.batch_size)-0.5)*10.0
+                labels=norm.pdf(d,loc=self.data.mu,scale=self.data.sigma)
+                pretrain_loss,_=session.run(
+                    [self.pre_loss,self.pre_opt],
+                    {
+                        self.pre_input:np.reshape(d,(self.batch_size,1)),
+                        self.pre_labels:np.reshape(labels,(self.batch_size,1))
+                    }
+                )
+            self.weightsD=session.run(self.d_pre_params)
+
+            #copy weights from pretraining over to new D network
+            for i,v in enumerate(self.d_params):
+                session.run(v.assign(self.weightsD[i]))
+
+            for step in range(self.num_steps):
+                #update discriminator
+                x=self.data.samples(self.batch_size)
+                z=self.gen.samples(self.batch_size)
+                loss_d,_=session.run(
+                    [self.loss_d,self.opt_d],
+                    {
+                        self.x:np.reshape(x,(self.batch_size,1)),
+                        self.z:np.reshape(z,(self.batch_size,1))
+                    }
+                )
+
+                #update generator
+                z=self.gen.samples(self.batch_size)
+                loss_g,_=session.run(
+                    [self.loss_g,self.opt_g],
+                    {
+                        self.z:np.reshape(z,(self.batch_size,1))
+                    }
+                )
+
+                if step % self.log_every==0:
+                    print('{}:{}\t{}'.format(step,loss_d,loss_g))
+                if self.anim_path:
+                    self.anim_frames.append(self._samples(session))
+
+            if self.anim_path:
+                self._save_animation()
+            else:
+                self._plot_distributions(session)
+
+    def _samples(self, session, num_points=10000, num_bins=100):
+            # return a tuple (db,pd,pg), where db is the current decision boundary
+            # pd is a histogram of samples from the data distribution,
+            # and pg is a histogram of generated samples.
+            xs = np.linspace(-self.gen.range, self.gen.range, num_points)
+            bins = np.linspace(-self.gen.range, self.gen.range, num_bins)
+
+            # decision boundary
+            db = np.zeros((num_points, 1))
+            for i in range(num_points // self.batch_size):
+                db[self.batch_size * i:self.batch_size * (i + 1)] = session.run(
+                    self.D1,
+                    {
+                        self.x: np.reshape(
+                            xs[self.batch_size * i:self.batch_size * (i + 1)],
+                            (self.batch_size, 1)
+                        )
+                    }
+                )
+            # data distribution
+            d = self.data.samples(num_points)
+            pd, _ = np.histogram(d, bins=bins, density=True)
+
+            # generated samples
+            zs = np.linspace(-self.gen.range, self.gen.range, num_points)
+            g = np.zeros((num_points, 1))
+            # // 整数除法
+            for i in range(num_points // self.batch_size):
+                g[self.batch_size * i:self.batch_size * (i + 1)] = session.run(
+                    self.G,
+                    {
+                        self.z: np.reshape(
+                            zs[self.batch_size * i: self.batch_size * (i + 1)],
+                            (self.batch_size, 1)
+                        )
+                    }
+                )
+            pg, _ = np.histogram(g, bins=bins, density=True)
+            return db, pd, pg
+
+    def _plot_distributions(self, session):
+            db, pd, pg = self._samples(session)
+            db_x = np.linspace(-self.gen.range, self.gen.range, len(db))
+            p_x = np.linspace(-self.gen.range, self.gen.range, len(pd))
+            f, ax = plt.subplots(1)
+            ax.plot(db_x, db, label='decision boundary')
+            ax.set_ylim(0, 1)
+            plt.plot(p_x, pd, label='real data')
+            plt.plot(p_x, pg, label='generated data')
+            plt.title('1D Generative Adversarial Network')
+            plt.xlabel('Data values')
+            plt.ylabel('Probability density')
+            plt.legend()
+            plt.show()
+
+    def _save_animation(self):
+        f, ax = plt.subplots(figsize=(6, 4))
+        f.suptitle('1D Generative Adversarial Network', fontsize=15)
+        plt.xlabel('Data values')
+        plt.ylabel('Probability density')
+        ax.set_xlim(-6, 6)
+        ax.set_ylim(0, 1.4)
+        line_db, = ax.plot([], [], label='decision boundary')
+        line_pd, = ax.plot([], [], label='real data')
+        line_pg, = ax.plot([], [], label='generated data')
+        frame_number = ax.text(
+            0.02,
+            0.95,
+            '',
+            horizontalalignment='left',
+            verticalalignment='top',
+            transform=ax.transAxes
+        )
+        ax.legend()
+
+        db, pd, _ = self.anim_frames[0]
+        db_x = np.linspace(-self.gen.range, self.gen.range, len(db))
+        p_x = np.linspace(-self.gen.range, self.gen.range, len(pd))
+
+        def init():
+            line_db.set_data([], [])
+            line_pd.set_data([], [])
+            line_pg.set_data([], [])
+            frame_number.set_text('')
+            return (line_db, line_pd, line_pg, frame_number)
+
+        def animate(i):
+            frame_number.set_text(
+                'Frame: {}/{}'.format(i, len(self.anim_frames))
+            )
+            db, pd, pg = self.anim_frames[i]
+            line_db.set_data(db_x, db)
+            line_pd.set_data(p_x, pd)
+            line_pg.set_data(p_x, pg)
+            return (line_db, line_pd, line_pg, frame_number)
+
+        anim = animation.FuncAnimation(
+            f,
+            animate,
+            init_func=init,
+            frames=len(self.anim_frames),
+            blit=True
+        )
+        anim.save(self.anim_path, fps=30, extra_args=['-vcodec', 'libx264'])
 
 
-if __name__ == "__main__":
-    with open('params.json', 'r') as f:
-        params = json.load(f)
+def main(args):
+    model = GAN(
+        DataDistribution(),
+        GeneratorDistribution(range=8),
+        args.num_steps,
+        args.batch_size,
+        args.minibatch,
+        args.log_every,
+        args.anim
+    )
+    model.train()
 
-    FLAGS = SimpleNamespace(**params)
 
-    with open('.git/HEAD', 'r') as f_head:
-        git_head_pointer = f_head.read().strip().split(': ')[-1]
-        with open('.git/' + git_head_pointer, 'r') as f_git_hash:
-            git_hash = f_git_hash.read()[:7]
-    FLAGS.model_dir += git_hash
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--num-steps', type=int, default=1200,
+                        help='the number of training steps to take')
+    parser.add_argument('--batch-size', type=int, default=12,
+                        help='the batch size')
+    parser.add_argument('--minibatch', type=bool, default=False,
+                        help='use minibatch discrimination')
+    parser.add_argument('--log-every', type=int, default=10,
+                        help='print loss after this many steps')
+    parser.add_argument('-anim', type=str, default=None,
+                        help='the name of the output animation file (default: none)')
+    return parser.parse_args()
 
-    FLAGS.target_size = ast.literal_eval(FLAGS.target_size)
-    FLAGS.projection_size = ast.literal_eval(FLAGS.projection_size)
-    FLAGS.data_format = 'channels_first' if FLAGS.channels_first else 'channels_last'
-
-    tf.logging.set_verbosity(tf.logging.INFO)
-    tf.app.run()
 
 if __name__ == '__main__':
-    pass
+    main(parse_args())

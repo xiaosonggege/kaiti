@@ -11,7 +11,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-
 class SinusoidGenerator():
     '''
         Sinusoid Generator.

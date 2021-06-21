@@ -87,7 +87,7 @@ def peak_with_boundary():
 
     peaks_start_end = np.hstack((np.array(peaks_start), np.array(peaks_end)))
     peaks_start_end = np.sort(peaks_start_end)
-    return qujixian_result, peaks_start, peaks_end, peaks_start_end
+    return qujixian_result, peaks_start, peaks_end, peaks_start_end, x_a1
 
 if __name__ == '__main__':
     # gamma能谱

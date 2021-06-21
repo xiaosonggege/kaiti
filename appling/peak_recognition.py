@@ -292,18 +292,37 @@ def model_main(dataset_findpeak, dataset_distinct, operation):
 
 def data_maker():
     # =======原始信号=========
-    qujixian_result, peaks_start, peaks_end, peaks_with_boundary = peak_with_boundary()
-    # print(qujixian_result.shape)
+    qujixian_result, peaks_start, peaks_end, peaks_with_boundary, x_a1 = peak_with_boundary()
+    print(qujixian_result.shape)
+    print(peaks_with_boundary.shape)
+    qujixian_result = qujixian_result[:qujixian_result.shape[0]-qujixian_result.shape[0]%10]
     # 制作本底甄别label(000001111000...)
     bendi_label = np.zeros(shape=qujixian_result.shape)
     for pos in range(0, peaks_with_boundary.shape[0], 2):
         bendi_label[peaks_with_boundary[pos]:peaks_with_boundary[pos+1]] = 1
     #制作粒子甄别样本
     fengzhi_label = np.zeros(shape=qujixian_result.shape)
-    flag = 1
-    for pos in range(peaks_with_boundary.shape[0]):
-        fengzhi_label[pos] = 1 if flag == 1 else 2
-        flag = 1 - flag
+    i = 1
+    for pos in range(0, peaks_with_boundary.shape[0], 2):
+        fengzhi_label[peaks_with_boundary[pos]:peaks_with_boundary[pos+1]] = i
+        i += 1
+
+    #
+    rng = np.random.RandomState(0)
+    noise = rng.random(size=fengzhi_label.shape)
+    print(fengzhi_label)
+    print(fengzhi_label + noise*0.1)
+    #
+    #debug
+    fig, ax = plt.subplots()
+    ax.plot(x_a1[:-2], qujixian_result)
+    # ax.scatter(x_a1[peaks_high], signal[peaks_high], color='r')
+    ax.scatter(x_a1[peaks_with_boundary], qujixian_result[peaks_with_boundary], color='black', s=10)
+    # ax.plot(x_a1[:-2], bendi_label*1e-7, color='blue')
+    ax.plot(x_a1[:-2], fengzhi_label*1e-7, color='pink')
+    fig.show()
+    #
+
     #本底甄别dataset制作 单个样本feature长度为LEN_PER_FEATURE
     bendi_feature = qujixian_result.reshape(-1, LEN_PER_FEATURE)
     bendi_label = bendi_label.reshape(-1, LEN_PER_FEATURE)
@@ -326,7 +345,15 @@ if __name__ == '__main__':
     # dataset_distinct = np.random.normal(size=(100, 10+10))
     #
     dataset_findpeak, dataset_distinct = data_maker()
-    model_main(dataset_findpeak=dataset_findpeak, dataset_distinct=dataset_distinct, operation='XGBoost')
+    # model_main(dataset_findpeak=dataset_findpeak, dataset_distinct=dataset_distinct, operation='SVR')
+
+    #
+    # qujixian_result, peaks_start, peaks_end, peaks_with_boundary, x_a1 = peak_with_boundary()
+    # rng = np.random.RandomState(0)
+    # noise  = rng.randint(low=-10, high=10, size=peaks_with_boundary.shape)
+    # print(peaks_with_boundary)
+    # print(peaks_with_boundary + noise)
+    #
 
 
 

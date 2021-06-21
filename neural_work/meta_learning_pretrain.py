@@ -118,9 +118,9 @@ class Meta_process:
         saver = tf.train.Saver(self._weights)
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            if os.listdir(os.getcwd() + os.path.sep + 'checkpointfile'):
-                saver.restore(sess=sess, save_path=tf.train.latest_checkpoint(
-                    os.getcwd() + os.path.sep + 'checkpointfile'))
+            # if os.listdir(os.getcwd() + os.path.sep + 'checkpointfile'):
+            #     saver.restore(sess=sess, save_path=tf.train.latest_checkpoint(
+            #         os.getcwd() + os.path.sep + 'checkpointfile'))
 
             loss_optim = 1e9
             for epoch in range(self._epoch):
@@ -172,6 +172,6 @@ if __name__ == '__main__':
     y_test = y_test.reshape(1000, -1)
     train_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x_train, y_train)).batch(512)
     test_ds_Dataset = tf.data.Dataset.from_tensor_slices(tensors=(x_test, y_test)).batch(25)
-    pq = Meta_process(epoch=500000, support_Dataset=train_ds_Dataset, query_Dataset=test_ds_Dataset)
+    pq = Meta_process(epoch=1, support_Dataset=train_ds_Dataset, query_Dataset=test_ds_Dataset)
     # pq.Dataset = train_ds_Dataset
     pq.meta_train(input_size=20)
