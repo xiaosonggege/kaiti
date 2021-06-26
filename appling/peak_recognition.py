@@ -336,6 +336,12 @@ def data_maker():
     fengzhi_dataset = np.tile(fengzhi_dataset, reps=(REPEAT, 1))
     return bendi_dataset, fengzhi_dataset
 
+def metrics(y_true:np.ndarray, y_pred:np.ndarray, labels:list):
+    import sklearn
+    p_class, r_class, f_class, support_micro = sklearn.metrics.precision_recall_fscore_support(
+        y_true=y_true, y_pred=y_pred, labels=labels, average=None)
+    return p_class.mean(), r_class.mean(), f_class.mean()
+
 if __name__ == '__main__':
     # ========>debug========>
     # #findpeak_debug
@@ -354,6 +360,8 @@ if __name__ == '__main__':
     # print(peaks_with_boundary)
     # print(peaks_with_boundary + noise)
     #
+
+
 
 
 

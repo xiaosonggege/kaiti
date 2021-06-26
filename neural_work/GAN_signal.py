@@ -374,60 +374,30 @@ if __name__ == "__main__":
     BATCH_SIZE = 100
     LR_G = 0.0001
     LR_D = 0.0001
-    N_IDEAS = 5
-    ART_COMPONENTS = 10
-    # data = pd.read_excel("D:/graduate/lab640/数据分析/images/two-curves.xlsx")
-    # # PAINT_POINTS = np.vstack([np.linspace(-1, 1, ART_COMPONENTS) for _ in range(BATCH_SIZE)])  # shape = (64,15)
-    # PAINT_POINTS = np.vstack([data['x10'] for _ in range(BATCH_SIZE)])  # shape = (64,15)
-    # # Y_POINTS = np.vstack([data['x11'] for _ in range(BATCH_SIZE)])
-    # max_y = max(data['x11'])
-    # min_y = min(data['x11'])
-    # tmp = [(x-min_y)/(max_y-min_y) for x in data['x11']]
-    # Y_POINTS = np.vstack([tmp for _ in range(BATCH_SIZE)])
-    #
-    # print(PAINT_POINTS)
-    #
-    # plt.plot(PAINT_POINTS[0], Y_POINTS[0] + 1, c='#74BCFF', lw=3, label='upper bound')
-    # plt.plot(PAINT_POINTS[0], Y_POINTS[0], c='#FF9359', lw=3, label='lower bound')
-    # plt.legend(loc='upper right')
-    # plt.show()
-    #
-    #
-    # def artist_works():
-    #     """
-    #     真实数据
-    #     :return:
-    #     """
-    #     # a = np.random.uniform(1, 2, size=BATCH_SIZE)[:, np.newaxis]  # shape = (64,1)
-    #     # paintings = a * np.power(PAINT_POINTS, 2) + (a - 1)  # shape = (64,15)
-    #     # return paintings
-    #     a = np.random.randint(0, 1, size=BATCH_SIZE)[:, np.newaxis]
-    #     return a + Y_POINTS
-
+    GEN_DIM = 5
+    INPUT_DIM = 10
 
     with tf.variable_scope('Generator'):
         # 生成器，用来伪造数据
         is_train = tf.placeholder(tf.int32)
         # if is_train == 1:
-        G_in = tf.placeholder(tf.float32, [None, N_IDEAS])  # shape = (64,5)
+        G_in = tf.placeholder(tf.float32, [None, GEN_DIM])  # shape = (64,5)
         G_l1 = tf.layers.dense(G_in, 256, tf.nn.relu)
         # G_l2 = tf.layers.dense(G_l1, 128, tf.nn.relu)
-        G_out = tf.layers.dense(G_l1, ART_COMPONENTS)
-        # else:
-        #     G_out = tf.placeholder(tf.float32, [None, ART_COMPONENTS])
+        G_out = tf.layers.dense(G_l1, INPUT_DIM)
 
-    with tf.variable_scope('Discriminator'):
+    with tf.variable_scope('Discriminator', reuse=tf.AUTO_REUSE):
         # 判别器
-        real_art = tf.placeholder(tf.float32, [None, ART_COMPONENTS], name='real_in')  # 使用鉴别器来鉴别真实数据
-        D_l0 = tf.layers.dense(real_art, 128, tf.nn.relu, name='1')  # 并将它判别为1
-        prob_artist0 = tf.layers.dense(D_l0, 1, tf.nn.sigmoid, name='out')
+        real_data = tf.placeholder(tf.float32, [None, INPUT_DIM], name='real_data')
+        real_output = tf.layers.dense(real_data, 128, tf.nn.relu, name='l1')
+        real_output = tf.layers.dense(real_output, 1, tf.nn.sigmoid, name='out')
 
         # fake art
-        D_l1 = tf.layers.dense(G_out, 128, tf.nn.relu, name='1', reuse=True)  # 使用费鉴别器来判别伪造数据
-        prob_artist1 = tf.layers.dense(D_l1, 1, tf.nn.sigmoid, name='out', reuse=True)  # 并将其判别为0
+        fake_output = tf.layers.dense(G_out, 128, tf.nn.relu, name='1')
+        fake_output = tf.layers.dense(fake_output, 1, tf.nn.sigmoid, name='out')
 
-    D_loss = -tf.reduce_mean(tf.log(prob_artist0) + tf.log(1 - prob_artist1))  # 定义误差函数
-    G_loss = tf.reduce_mean(tf.log(1 - prob_artist1))
+    D_loss = -tf.reduce_mean(tf.log(real_output) + tf.log(1 - fake_output))  # 定义误差函数
+    G_loss = -tf.reduce_mean(tf.log(fake_output))
 
     train_D = tf.train.AdamOptimizer(LR_D).minimize(  # 定义优化函数
                 D_loss, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Discriminator'))
@@ -439,36 +409,14 @@ if __name__ == "__main__":
     sess.run(tf.global_variables_initializer())
     from appling.basic_line import peak_with_boundary
     qujixian_result, peaks_start, peaks_end, peaks_with_boundary, x_a1 = peak_with_boundary()
-    # plt.ion()
-    artist_paintings = qujixian_result[:1000].reshape(-1, 10)
+    dataset = qujixian_result[:1000].reshape(-1, 10)
+    # print(dataset.shape)
     for step in range(5000):
-        G_ideas = np.random.randn(BATCH_SIZE, N_IDEAS)
-        G_paintings, pa0, D1 = sess.run([G_out, prob_artist0, D_loss, train_D, train_G],
-                                        {G_in: G_ideas, real_art: artist_paintings})[:3]
-        print('=============', D1)
-
-    #     if step % 50 == 0:  # 可视化
-    #         plt.cla()
-    #         plt.plot(PAINT_POINTS[0], G_paintings[0], c='#4AD631', lw=3, label='Generated painting')
-    #         plt.plot(PAINT_POINTS[0], Y_POINTS[0] + 1, c='#74BCFF', lw=3, label='upper bound')
-    #         plt.plot(PAINT_POINTS[0], Y_POINTS[0], c='#FF9359', lw=3, label='lower bound')
-    #         plt.text(-.5, 2.3, 'D accuracy=%.2f (0.5 for D to converge)' % pa0.mean(), fontdict={'size': 15})
-    #         plt.text(-.5, 2, 'D score=%.2f (-1.38 for G to converge)' % -D1, fontdict={'size': 15})
-    #         plt.ylim((0, 3))
-    #         plt.legend(loc='upper right', fontsize=12)
-    #         plt.draw()
-    #         plt.pause(0.01)
-    #
-    # plt.ioff()
-    # plt.show()
-
-    #eval
-    # artist_paintings = artist_works()
-    G_ideas = np.random.randn(BATCH_SIZE, ART_COMPONENTS)
-    G_paintings, pa1, pa0 = sess.run([G_out, prob_artist1, prob_artist0],
-                                    {G_out: G_ideas, real_art: artist_paintings, is_train:0})
-    # plt.plot(PAINT_POINTS[0], G_paintings[0], lw=3, label='test Generated painting')
-    #
-    # print(np.mean(pa1))
-    # print(np.mean(pa0))
-    # plt.show()
+        G_ideas = np.random.randn(BATCH_SIZE, GEN_DIM)
+        # print(G_ideas.shape)
+        # G_paintings, pa0, D1 = sess.run([G_out, prob_artist0, D_loss, train_D, train_G],
+        #                                 {G_in: G_ideas, real_art: artist_paintings})[:3]
+        _, D_loss_ = sess.run(fetches=[train_D, D_loss], feed_dict={G_in:G_ideas, real_data:dataset})
+        _, G_loss_ = sess.run(fetches=[train_G, G_loss], feed_dict={G_in:G_ideas})
+        if step % 100 == 0:
+            print('=============', G_loss_)
